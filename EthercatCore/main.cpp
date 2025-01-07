@@ -504,6 +504,7 @@ int compute() {
 //EthercatCore_task	
 void EthercatCore_run(void *arg)
 {
+	unsigned int runcount=0;
 	RTIME now, previous;
 	
 	// Synchronize EtherCAT Master (for Distributed Clock Mode)
@@ -520,6 +521,7 @@ void EthercatCore_run(void *arg)
 		//test
 		//test2
 		rt_task_wait_period(NULL); 	//wait for next cycle
+		runcount++;
 		previous = rt_timer_read();
 
 		/// TO DO: read data from sensors in EtherCAT system interface
@@ -561,7 +563,7 @@ void EthercatCore_run(void *arg)
 		now = rt_timer_read();
 		ethercat_time = (long) now - previous;
 
-		if (_systemInterface_EtherCAT_EthercatCore.isSystemReady())
+		if (_systemInterface_EtherCAT_EthercatCore.isSystemReady()&& (runcount>WAKEUP_TIME*(NSEC_PER_SEC/cycle_ns)))
 		{
 			system_ready=1;	//all drives have been done
 
