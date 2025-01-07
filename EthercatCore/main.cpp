@@ -35,6 +35,7 @@
 #include "EcatControlSocket.h"
 
 #include "ServoAxis.h"
+#include "DataLogger/DataLogger.h"
 
 // PID gian value
 #define NUM_AXIS	(1)		//Modify this number to indicate the actual number of motor on the network
@@ -134,6 +135,11 @@ INT16 	TargetTor[NUM_AXIS] = {0};
 UINT32 	DataOut[NUM_AXIS] = {0};
 UINT8 	ModeOfOperation[NUM_AXIS] = {0};
 UINT16	Controlword[NUM_AXIS] = {0};
+
+DataLogger _dataLogger;
+unsigned int _logCnt;
+double _time;
+#define LOG_DATA_SAVE_PERIOD  30*4000
 
 ///// SDO Access /////////
 
@@ -442,10 +448,19 @@ void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, doub
 }
 double motion_time = 0;
 bool initflag = true;
+bool flag_datalogging = true;
 int compute() {
     if (demo_mode == DEMO_MODE_TORQUE) {
+		if (system_ready){
+			if(flag_datalogging){
+				_dataLogger.activate();
+				flag_datalogging = false;
+			}
+		}
+
         for (int i = 0; i < NUM_AXIS; ++i) {
             if (system_ready) {
+            	_time += period;
 				//1. Assume that actual position and velocity (q, qdot) unit is changed to radian and radian/sec: DONE
 				//2. Assume that actual torque unit is changed to Nm //DONE
 				//3. generate desired trajectory (qdes, qdotdes, qdotdotdes) in radian, radian/sec, and radian/sec^2
@@ -520,6 +535,15 @@ void EthercatCore_run(void *arg)
 		/// TO DO: Main computation routine...
 		compute();
 		
+		_dataLogger.updateLoggedData(_time, q, qdot, core_tor);
+		// Triggering logger saving
+		_logCnt--;
+		if (_logCnt <= 0)
+		{
+			_dataLogger.triggerSaving();
+			_logCnt = LOG_DATA_SAVE_PERIOD; // 10s
+		}
+
 		/// TO DO: write data to actuators in EtherCAT system interface
 		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x607a0, TargetPos);
 		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x60ff0, TargetVel);
@@ -750,6 +774,7 @@ void plot_run(void *arg)
 /****************************************************************************/
 void signal_handler(int signum = 0)
 {
+	_dataLogger.deactivate();
 	rt_task_delete(&plot_task);
 	rt_task_delete(&gui_task);
 	rt_task_delete(&EthercatCore_task);
