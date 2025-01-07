@@ -139,7 +139,7 @@ UINT16	Controlword[NUM_AXIS] = {0};
 DataLogger _dataLogger;
 unsigned int _logCnt;
 double _time;
-#define LOG_DATA_SAVE_PERIOD  30*4000
+#define LOG_DATA_SAVE_PERIOD  30*1000
 
 ///// SDO Access /////////
 
@@ -535,7 +535,7 @@ void EthercatCore_run(void *arg)
 		/// TO DO: Main computation routine...
 		compute();
 		
-		_dataLogger.updateLoggedData(_time, q, qdot, core_tor);
+		_dataLogger.updateLoggedData(_time, q, qdes, core_tor);
 		// Triggering logger saving
 		_logCnt--;
 		if (_logCnt <= 0)
