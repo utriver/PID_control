@@ -503,6 +503,7 @@ void EthercatCore_run(void *arg)
 	while (run)
 	{
 		//test
+		//test2
 		rt_task_wait_period(NULL); 	//wait for next cycle
 		previous = rt_timer_read();
 
