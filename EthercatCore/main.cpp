@@ -135,6 +135,14 @@ UINT32 	DataOut[NUM_AXIS] = {0};
 UINT8 	ModeOfOperation[NUM_AXIS] = {0};
 UINT16	Controlword[NUM_AXIS] = {0};
 
+<<<<<<< Updated upstream
+=======
+DataLogger _dataLogger;
+unsigned int _logCnt;
+double _time;
+#define LOG_DATA_SAVE_PERIOD  30*4000
+
+>>>>>>> Stashed changes
 ///// SDO Access /////////
 
 
