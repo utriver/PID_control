@@ -6,7 +6,7 @@
 
 #include "DataConfiguration.h"
 
-#define BUFF_SIZE       	30*1000  //5sec * 4000Hz
+#define BUFF_SIZE       	30*4000  //5sec * 4000Hz
 #define SAMPLE_LOG_FILE     "/home/user/release/SampleLoggingFile.csv"
 
 class DataLogger : public Poco::Runnable
@@ -22,6 +22,7 @@ private:
 
     LoggedData _loggingBuff[BUFF_SIZE];
     unsigned _buffIdx;
+    unsigned _dataCount;
 
 protected:
     Poco::Thread _thread;

@@ -139,7 +139,7 @@ UINT16	Controlword[NUM_AXIS] = {0};
 DataLogger _dataLogger;
 unsigned int _logCnt;
 double _time;
-#define LOG_DATA_SAVE_PERIOD  30*1000
+#define LOG_DATA_SAVE_PERIOD  30*4000
 
 ///// SDO Access /////////
 
@@ -418,7 +418,7 @@ double physical2ethercat(double control_signal)
 // 	return 0;
 // }
 double error_integral = 0;
-double kp=1, ki=0.1, kd=0.1;
+double kp=3.5, ki=0.7, kd=2.0;
 double error, error_dot;
 
 double pid_control(double qdes, double q, double qdot, double qdotdes, double &computed_torque) {
@@ -811,6 +811,10 @@ int main(int argc, char **argv)
 		if (argc>3)
 	{
 		kd = atof(argv[3]);
+	}
+	if (argc>4)
+	{
+		ki=atof(argv[4]);
 	}
 
 
