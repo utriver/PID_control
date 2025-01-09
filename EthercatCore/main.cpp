@@ -36,6 +36,7 @@
 
 #include "ServoAxis.h"
 #include "DataLogger/DataLogger.h"
+#include "CoreController/Controllers.h"
 
 // PID gian value
 #define NUM_AXIS	(1)		//Modify this number to indicate the actual number of motor on the network
@@ -105,7 +106,11 @@ int system_ready = 0;
 // Global time (beginning from zero)
 double gt=0;
 double q[NUM_AXIS] = {0,};
+double despos[NUM_AXIS] = {0,};
 double qdot[NUM_AXIS] = {0,};
+double desvel[NUM_AXIS] = {0,};
+double qddot[NUM_AXIS] = {0,};
+double desacc[NUM_AXIS] = {0,};
 double core_tor[NUM_AXIS] = {0,};
 
 /// TO DO: This is user-code.
@@ -149,6 +154,21 @@ double _time;
 
 // Interface to physical axes
 NRMKHelper::ServoAxis Axis[NUM_AXIS];
+
+//trajectory class
+typedef Controllers::JointMat JointMat;
+typedef Controllers::JointVec JointVec;
+
+
+Controllers _trajectory;
+Controllers _PIDctr;
+Controllers _filters;
+
+
+double qdes_lspb_init = 0;
+
+JointVec _qdot_prev;
+JointVec _qddot_prev;
 
 /****************************************************************************/
 
@@ -293,8 +313,8 @@ void ethercat2physical()
 		{
 		case 0:
 		
-			q[i] = (double) (ActualPos[i] - ZeroPos[i])*360/7929856;
-			qdot[i] = (double) ActualVel[i]*360/7929856;
+			q[i] = (double) (ActualPos[i] - ZeroPos[i])*360/7929856*deg2rad	;
+			qdot[i] = (double) ActualVel[i]*360/7929856*deg2rad;
 			core_tor[i] = (double) ActualTor[i]*Cnt2Nm;
 			break;
 		// case 1:
@@ -314,7 +334,7 @@ void ethercat2physical()
 	
 }
 double control_signal=0;
-double maxtorq = 200;
+double maxtorq = 150;
 double physical2ethercat(double control_signal)
 {
 	for (int i=0; i<NUM_AXIS; ++i)
@@ -330,7 +350,7 @@ double physical2ethercat(double control_signal)
 		else if (control_signal < -maxtorq) control_signal = -maxtorq;
 		
 		temp_tau = control_signal * Nm2Cnt;
-		return temp_tau;
+		return (INT16) temp_tau;
 		break;
 		// case 1:
 		// 	temp_q = q[i]/deg2rad;
@@ -418,34 +438,42 @@ double physical2ethercat(double control_signal)
 // 	return 0;
 // }
 double error_integral = 0;
-double kp=3.5, ki=0.7, kd=2.0;
+double kp=2600, ki=550, kd=1500;
 double error, error_dot;
 
-double pid_control(double qdes, double q, double qdot, double qdotdes, double &computed_torque) {
+void pid_control(double qdes, double q, double qdot, double qdotdes, double &computed_torque) {
     error = qdes - q;
 	error_dot = qdotdes - qdot;
 
 //	computed_torque = kp * error - kd * qdot;
-	computed_torque = kp * error + kd * error_dot + ki * error_integral;
-	error_integral += 0.001 * error;
-	return computed_torque;
+	computed_torque = 3.5*(kp * error + kd * error_dot + ki * error_integral);
+//	error_integral += 0.001 * error; //1kHz
+	error_integral += 0.00025 * error;
+//	return computed_torque;
 
 }
 
 void LowPassDerivative(const double & input_prev, const double& input_present, const double& output_prev, const double& cutoff , double& output){
-	double _delT=0.001;
+//	double _delT=0.001;
+	double _delT=0.00025;
 	double ALPHA = ( (2 * cutoff * _delT) / (2 + cutoff*_delT));
 	output = ALPHA * ( (input_present - input_prev)/_delT) + (1 - ALPHA) * output_prev;
 	//cout<<"input_present:"<<input_present<<endl<<"input_prev:"<<input_prev<<endl;
 }
 
-double amplitude = 30;
+double amplitude = 2.5;
+// void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
+// 	double omega = 2 * PI * f;
+// 	qdes = amplitude * (cos(omega* motion_time) - 1);
+// 	qdotdes = -amplitude * omega * sin(omega * motion_time);
+// 	qdotdotdes = -amplitude * omega * omega * cos(omega * motion_time);
+// }
 void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
-	double omega = 2 * PI * f;
-	qdes = amplitude * cos(omega* motion_time);
-	qdotdes = -amplitude * omega * sin(omega * motion_time);
-	qdotdotdes = -amplitude * omega * omega * cos(omega * motion_time);
+	qdes = _trajectory.gen_lspb_trajectory(true);
+
+
 }
+
 double motion_time = 0;
 bool initflag = true;
 bool flag_datalogging = true;
@@ -476,10 +504,12 @@ int compute() {
 				}
 
 				// generate trajectory 
-				generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
+				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
                 // PID control for position, output as torque
-				control_signal = pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
+//				control_signal = pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
+				pid_control(qdes[i], q[i], qdot[i], qdotdes[i], control_signal);
 				TargetTor[i] = physical2ethercat(control_signal);
+				// qdes[i] = _trajectory.gen_lspb_trajectory(true);
 				motion_time += period;
             } else {
                 _systemInterface_EtherCAT_EthercatCore.setServoOn(i);
@@ -523,7 +553,11 @@ void EthercatCore_run(void *arg)
 		rt_task_wait_period(NULL); 	//wait for next cycle
 		runcount++;
 		previous = rt_timer_read();
-
+		//position trajectory
+		 // CSV 파일들이 있는 디렉토리 경로
+		
+		
+		
 		/// TO DO: read data from sensors in EtherCAT system interface
 		_systemInterface_EtherCAT_EthercatCore.processTxDomain();
 		_systemInterface_EtherCAT_EthercatCore.readBuffer(0x60410, StatusWord);
@@ -536,16 +570,20 @@ void EthercatCore_run(void *arg)
 		ethercat2physical();
 		/// TO DO: Main computation routine...
 		compute();
-		
-		_dataLogger.updateLoggedData(_time, q, qdes, core_tor);
-		// Triggering logger saving
-		_logCnt--;
-		if (_logCnt <= 0)
+		if(system_ready)
 		{
-			_dataLogger.triggerSaving();
-			_logCnt = LOG_DATA_SAVE_PERIOD; // 10s
+			_dataLogger.updateLoggedData(_time, qdes, qdotdes, qdotdotdes);
+					// Triggering logger saving
+			_logCnt--;
+			if (_logCnt <= 0)
+			{
+				_dataLogger.triggerSaving();
+				_logCnt = LOG_DATA_SAVE_PERIOD; // 10s
+			}
 		}
 
+	
+		
 		/// TO DO: write data to actuators in EtherCAT system interface
 		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x607a0, TargetPos);
 		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x60ff0, TargetVel);
@@ -574,7 +612,10 @@ void EthercatCore_run(void *arg)
 				++fault_count;
 		}
 	}
-}
+
+}		
+	
+
 
 // Console cycle
 // Note: You have to use rt_printf in Xenomai RT tasks
@@ -821,7 +862,8 @@ int main(int argc, char **argv)
 	// double kp=1, ki=0.1, kd=0.1;
 	
 	// TO DO: Specify the cycle period (cycle_ns) here, or use default value
-	cycle_ns=1000000; // nanosecond
+//	cycle_ns=1000000; // nanosecond 1kHz
+	cycle_ns=250000; // nanosecond 4kHz
 	period=((double) cycle_ns)/((double) NSEC_PER_SEC);	//period in second unit
 	
 	// Set the demo mode for EtherCAT application
@@ -862,6 +904,15 @@ int main(int argc, char **argv)
 	
 	// For trajectory interpolation
 	initAxes();
+	//confirm the trajectory file is loaded
+	if (!_trajectory.read_trajectory("/home/user/release/data_csvFile/")) {
+			exit(1);
+		}
+	printf("trajectory file is loaded\n");
+	// std::cout << "Trajectory Positions:" << std::endl;
+    // for (size_t i = 0; i < _trajectory._qdes_traj_pos.size(); ++i) {
+    //     std::cout << "Position [" << i << "]: " << _trajectory._qdes_traj_pos[i] << std::endl;
+    // }
 
 	// TO DO: Create data socket server
 	datasocket.setPeriod(period);
