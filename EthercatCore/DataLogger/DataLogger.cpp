@@ -38,7 +38,9 @@ bool DataLogger::deactivate()
 void DataLogger::updateLoggedData(const double time,
 								double const * const q,
 								double const * const qdot,
-								double const * const tau)
+								double const * const tau,
+                                double const * const qdes,
+                                double const * const qdotdes)
 {
 	// Update circular buffer
     if (!_isLogSaving)
@@ -49,6 +51,8 @@ void DataLogger::updateLoggedData(const double time,
             _loggingBuff[_buffIdx].q[i] = q[i];
             _loggingBuff[_buffIdx].qdot[i] = qdot[i];
             _loggingBuff[_buffIdx].tau[i] = tau[i];
+            _loggingBuff[_buffIdx].qdes[i] = qdes[i];
+            _loggingBuff[_buffIdx].qdotdes[i] = qdotdes[i];
         }
 
         _buffIdx++;
@@ -99,6 +103,10 @@ void DataLogger::run()
                     fprintf(logFile, "%f,  ", _loggingBuff[k].qdot[i]);
                 for (unsigned int i = 0; i < JOINT_DOF; i++)
 					fprintf(logFile, "%f,  ", _loggingBuff[k].tau[i]);
+                for (unsigned int i = 0; i < JOINT_DOF; i++)
+                    fprintf(logFile, "%f,  ", _loggingBuff[k].qdes[i]);
+                for (unsigned int i = 0; i < JOINT_DOF; i++)
+                    fprintf(logFile, "%f,  ", _loggingBuff[k].qdotdes[i]);
 
                 fprintf(logFile, "\n");
             }
@@ -113,6 +121,11 @@ void DataLogger::run()
                     fprintf(logFile, "%f,  ", _loggingBuff[k].qdot[i]);
                 for (unsigned int i = 0; i < JOINT_DOF; i++)
 					fprintf(logFile, "%f,  ", _loggingBuff[k].tau[i]);
+                for (unsigned int i = 0; i < JOINT_DOF; i++)
+                    fprintf(logFile, "%f,  ", _loggingBuff[k].qdes[i]);
+                for (unsigned int i = 0; i < JOINT_DOF; i++)
+                    fprintf(logFile, "%f,  ", _loggingBuff[k].qdotdes[i]);
+    
 
                 fprintf(logFile, "\n");
             }

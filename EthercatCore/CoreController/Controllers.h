@@ -35,7 +35,7 @@ public:
 	};
   
   typedef	Eigen::Matrix<double, NUM_ACT, 1> JointVec;
-	typedef Eigen::Matrix<double, NUM_ACT, NUM_ACT> JointMat;
+  typedef Eigen::Matrix<double, NUM_ACT, NUM_ACT> JointMat;
 
   //PID controller
   JointVec _pid_eint_dr;

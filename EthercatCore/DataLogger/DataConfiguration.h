@@ -18,17 +18,21 @@ struct LoggedData
 	double q[JOINT_DOF];
 	double qdot[JOINT_DOF];
 	double tau[JOINT_DOF];
+	double qdes[JOINT_DOF];
+	double qdotdes[JOINT_DOF];
 
 	LoggedData()
-	: time(0.0), q{0.0}, qdot{0.0}, tau{0,0}
+	: time(0.0), q{0.0}, qdot{0.0}, tau{0,0}, qdes{0.0}, qdotdes{0.0}
 	{}
 
-	LoggedData(double time, const double * q, const double * qdot, const double * tau)
+	LoggedData(double time, const double * q, const double * qdot, const double * tau, const double * qdes, const double * qdotdes)
 	: time(time)
 	{
 		memcpy(this->q, q, JOINT_DOF*sizeof(double));
 		memcpy(this->qdot, qdot, JOINT_DOF*sizeof(double));
 		memcpy(this->tau, tau, JOINT_DOF*sizeof(double));
+		memcpy(this->qdes, qdes, JOINT_DOF*sizeof(double));
+		memcpy(this->qdotdes, qdotdes, JOINT_DOF*sizeof(double));
 	}
 
 	LoggedData(LoggedData const & data)
@@ -42,7 +46,7 @@ struct LoggedData
 		return (*this);
 	}
 
-	void update(double time, const double *q, const double *qdot, const double *tau)
+	void update(double time, const double *q, const double *qdot, const double *tau, const double *qdes, const double *qdotdes)
 	{
 		this->time = time;
 
@@ -51,6 +55,8 @@ struct LoggedData
 			this->q[i] = q[i];
 			this->qdot[i] = qdot[i];
 			this->tau[i] = tau[i];
+			this->qdes[i] = qdes[i];
+			this->qdotdes[i] = qdotdes[i];
 		}
 	}
 };

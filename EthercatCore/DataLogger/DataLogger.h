@@ -6,7 +6,7 @@
 
 #include "DataConfiguration.h"
 
-#define BUFF_SIZE       	30*4000  //5sec * 4000Hz
+#define BUFF_SIZE       	100*4000  //5sec * 4000Hz
 #define SAMPLE_LOG_FILE     "/home/user/release/SampleLoggingFile.csv"
 
 class DataLogger : public Poco::Runnable
@@ -34,7 +34,7 @@ public:
     bool activate();
     bool deactivate();
 
-    void updateLoggedData(const double time, double const * const q, double const * const qdot, double const * const tau);
+    void updateLoggedData(const double time, double const * const q, double const * const qdot, double const * const tau, double const * const qdes, double const * const qdotdes);
     void triggerSaving();
     void waitForEvent();
 

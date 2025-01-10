@@ -22,6 +22,11 @@
 #include <time.h>		// time calls
 #include <sys/ioctl.h>
 #include <math.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <string>
 
 //-xenomai-///////////////////////////////////////////////////////////////
 #include <native/task.h>
@@ -469,20 +474,44 @@ double amplitude = 2.5;
 // 	qdotdotdes = -amplitude * omega * omega * cos(omega * motion_time);
 // }
 void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
-	qdes = _trajectory.gen_lspb_trajectory(true);
-
-
+	_trajectory.gen_lspb_trajectory(true, qdes, qdotdes, qdotdotdes);
 }
 
 double motion_time = 0;
 bool initflag = true;
 bool flag_datalogging = true;
+int isInitLspb = 1;
+double q_init, qdes_lspb, qdes_prev;
+int ctr_traj = 0;
 int compute() {
     if (demo_mode == DEMO_MODE_TORQUE) {
-		if (system_ready){
-			if(flag_datalogging){
-				_dataLogger.activate();
-				flag_datalogging = false;
+		if (system_ready)
+		{	
+			for(int i=0; i<NUM_AXIS; i++)
+			{
+				if(flag_datalogging)
+				{
+    					// Start of Selection
+    					q_init = q[i];   // 첫 번째 실제 위치
+					_dataLogger.activate();
+					flag_datalogging = false;
+				}
+			
+			if(isInitLspb == 1)
+			{
+					qdes_lspb_init = -qdes[i];   //first desired position
+				isInitLspb = 0;
+			}
+
+			if(ctr_traj < _trajectory.max_traj_size)
+			{
+    				// Start of Selection
+    			qdes[i] = q_init + qdes[i] + qdes_lspb_init;
+			}
+			
+			ctr_traj++; //=motion_time
+
+				qdes_prev = qdes[i];
 			}
 		}
 
@@ -504,7 +533,7 @@ int compute() {
 				}
 
 				// generate trajectory 
-				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
+				generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
                 // PID control for position, output as torque
 //				control_signal = pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
 				pid_control(qdes[i], q[i], qdot[i], qdotdes[i], control_signal);
@@ -530,6 +559,19 @@ int compute() {
         }
     }
     return 0;
+}
+
+//extract constant velocity data from csv file
+std::vector<std::string> split(const std::string& line, char delimiter) {
+    std::vector<std::string> tokens;
+    std::stringstream ss(line);
+    std::string token;
+    
+    while (std::getline(ss, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    
+    return tokens;
 }
 //EthercatCore_task	
 void EthercatCore_run(void *arg)
@@ -566,13 +608,15 @@ void EthercatCore_run(void *arg)
 		_systemInterface_EtherCAT_EthercatCore.readBuffer(0x60770, ActualTor);
 		_systemInterface_EtherCAT_EthercatCore.readBuffer(0x60610, ModeOfOperationDisplay);
 		
+		
 
 		ethercat2physical();
 		/// TO DO: Main computation routine...
 		compute();
 		if(system_ready)
 		{
-			_dataLogger.updateLoggedData(_time, qdes, qdotdes, qdotdotdes);
+    			// Start of Selection
+    			_dataLogger.updateLoggedData(_time, q, qdot, core_tor, qdes, qdotdes);
 					// Triggering logger saving
 			_logCnt--;
 			if (_logCnt <= 0)
@@ -611,6 +655,231 @@ void EthercatCore_run(void *arg)
 			if(ethercat_time > max_time)
 				++fault_count;
 		}
+		double last_qdes = _trajectory._qdes_traj_pos[_trajectory.max_traj_size-1];
+	// Start of Selection
+		if (qdes[0] == last_qdes)
+		{
+			run = 0;
+			_dataLogger.deactivate();
+			sleep(4);
+			
+		
+			
+			std::string inputFileName = "/home/user/release/SampleLoggingFile.csv";    // 입력 CSV 파일 이름
+			std::string outputFileName1 = "/home/user/release/extractdata/v1.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName2 = "/home/user/release/extractdata/_v1.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName3 = "/home/user/release/extractdata/v2.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName4 = "/home/user/release/extractdata/_v2.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName5 = "/home/user/release/extractdata/v3.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName6 = "/home/user/release/extractdata/_v3.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName7 = "/home/user/release/extractdata/v4.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName8 = "/home/user/release/extractdata/_v4.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName9 = "/home/user/release/extractdata/v5.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName10 = "/home/user/release/extractdata/_v5.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName11 = "/home/user/release/extractdata/v6.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName12 = "/home/user/release/extractdata/_v6.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName13 = "/home/user/release/extractdata/v7.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName14 = "/home/user/release/extractdata/_v7.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName15 = "/home/user/release/extractdata/v8.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName16 = "/home/user/release/extractdata/_v8.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName17 = "/home/user/release/extractdata/v9.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName18 = "/home/user/release/extractdata/_v9.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName19 = "/home/user/release/extractdata/v10.csv";  // 출력 CSV 파일 이름
+			std::string outputFileName20 = "/home/user/release/extractdata/_v10.csv";  // 출력 CSV 파일 이름
+
+			std::ifstream inputFile(inputFileName);
+			if (!inputFile.is_open()) {
+				printf("CSV not found");
+				exit(0);
+			
+			}
+			
+
+			// 효율적인 파일 열기 검사
+			std::ofstream outputFile1(outputFileName1);
+			std::ofstream outputFile2(outputFileName2);
+			std::ofstream outputFile3(outputFileName3);
+			std::ofstream outputFile4(outputFileName4);
+			std::ofstream outputFile5(outputFileName5);
+			std::ofstream outputFile6(outputFileName6);
+			std::ofstream outputFile7(outputFileName7);
+			std::ofstream outputFile8(outputFileName8);
+			std::ofstream outputFile9(outputFileName9);
+			std::ofstream outputFile10(outputFileName10);
+			std::ofstream outputFile11(outputFileName11);
+			std::ofstream outputFile12(outputFileName12);
+			std::ofstream outputFile13(outputFileName13);
+			std::ofstream outputFile14(outputFileName14);
+			std::ofstream outputFile15(outputFileName15);
+			std::ofstream outputFile16(outputFileName16);
+			std::ofstream outputFile17(outputFileName17);
+			std::ofstream outputFile18(outputFileName18);
+			std::ofstream outputFile19(outputFileName19);
+			std::ofstream outputFile20(outputFileName20);
+
+			std::vector<std::pair<std::ofstream*, std::string>> outputFiles = {
+				{&outputFile1, outputFileName1},
+				{&outputFile2, outputFileName2},
+				{&outputFile3, outputFileName3},
+				{&outputFile4, outputFileName4},
+				{&outputFile5, outputFileName5},
+				{&outputFile6, outputFileName6},
+				{&outputFile7, outputFileName7},
+				{&outputFile8, outputFileName8},
+				{&outputFile9, outputFileName9},
+				{&outputFile10, outputFileName10},
+				{&outputFile11, outputFileName11},
+				{&outputFile12, outputFileName12},
+				{&outputFile13, outputFileName13},
+				{&outputFile14, outputFileName14},
+				{&outputFile15, outputFileName15},
+				{&outputFile16, outputFileName16},
+				{&outputFile17, outputFileName17},
+				{&outputFile18, outputFileName18},
+				{&outputFile19, outputFileName19},
+				{&outputFile20, outputFileName20}
+			};
+
+			for (const auto& filePair : outputFiles) {
+				if (!filePair.first->is_open()) {
+					std::cerr << "Failed to open output file: " << filePair.second << std::endl;
+					exit(1);
+				}
+			}
+
+			std::string line;
+			while (std::getline(inputFile, line)) {
+				// 각 행을 콤마로 분리
+				std::vector<std::string> columns = split(line, ',');
+
+				// 6번째 열이 있는지 확인
+				if (columns.size() >= 6) {
+					try {
+						// 6번째 열의 값을 실수로 변환
+						double value = std::stod(columns[5]);
+
+						// 값이 0.5인지 확인 0.05,0.19287,0.45579,0.93962, 1.83
+						
+							// Start of Selection
+							if (value == 0.05) {
+								*(outputFiles[0].first) << line << "\n";
+							}
+							else if (value == -0.05) {
+								*(outputFiles[1].first) << line << "\n";
+							}
+							else if (value == 0.10294) {
+								*(outputFiles[2].first) << line << "\n";
+							}
+							else if (value == -0.10294) {
+								*(outputFiles[3].first) << line << "\n";
+							}
+							else if (value == 0.17237) {
+								*(outputFiles[4].first) << line << "\n";
+							}
+							else if (value == -0.17237) {
+								*(outputFiles[5].first) << line << "\n";
+							}
+							else if (value == 0.26342) {
+								*(outputFiles[6].first) << line << "\n";
+							}
+							else if (value == -0.26342) {
+								*(outputFiles[7].first) << line << "\n";
+							}
+							else if (value == 0.38281) {
+								*(outputFiles[8].first) << line << "\n";
+							}
+							else if (value == -0.38281) {
+								*(outputFiles[9].first) << line << "\n";
+							}
+							else if (value == 0.53937) {
+								*(outputFiles[10].first) << line << "\n";
+							}
+							else if (value == -0.53937) {
+								*(outputFiles[11].first) << line << "\n";
+							}
+							else if (value == 0.74468) {
+								*(outputFiles[12].first) << line << "\n";
+							}
+							else if (value == -0.74468) {
+								*(outputFiles[13].first) << line << "\n";
+							}
+							else if (value == 1.0139) {
+								*(outputFiles[14].first) << line << "\n";
+							}
+							else if (value == -1.0139) {
+								*(outputFiles[15].first) << line << "\n";
+							}
+							else if (value == 1.367) {
+								*(outputFiles[16].first) << line << "\n";
+							}
+							else if (value == -1.367) {
+								*(outputFiles[17].first) << line << "\n";
+							}
+							else if (value == 1.83) {
+								*(outputFiles[18].first) << line << "\n";
+							}
+							else if (value == -1.83) {
+								*(outputFiles[19].first) << line << "\n";
+							}
+
+
+					} catch (const std::invalid_argument& e) {
+						// 변환 실패 시 무시
+						continue;
+					} catch (const std::out_of_range& e) {
+						// 값이 너무 클 경우 무시
+						continue;
+					}
+				}
+			}
+
+			inputFile.close();
+    			// Start of Selection
+			outputFiles[0].first->close();
+			outputFiles[1].first->close();
+			outputFiles[2].first->close();
+			outputFiles[3].first->close();
+			outputFiles[4].first->close();
+			outputFiles[5].first->close();
+			outputFiles[6].first->close();
+			outputFiles[7].first->close();
+			outputFiles[8].first->close();
+			outputFiles[9].first->close();
+			outputFiles[10].first->close();
+			outputFiles[11].first->close();
+			outputFiles[12].first->close();
+			outputFiles[13].first->close();
+			outputFiles[14].first->close();
+			outputFiles[15].first->close();
+			outputFiles[16].first->close();
+			outputFiles[17].first->close();
+			outputFiles[18].first->close();
+			outputFiles[19].first->close();
+
+
+			std::cout << "Filtered data is saved in " << outputFileName1 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName2 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName3 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName4 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName5 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName6 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName7 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName8 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName9 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName10 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName11 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName12 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName13 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName14 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName15 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName16 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName17 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName18 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName19 << std::endl;
+			std::cout << "Filtered data is saved in " << outputFileName20 << std::endl;
+			exit(0);
+		}
+
 	}
 
 }		
