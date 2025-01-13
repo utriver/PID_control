@@ -5,56 +5,65 @@
 #include <cstdio>
 
 #pragma pack(push)  /* push current alignment to stack*/
-#pragma pack(4)     /* set alignment to 4 byte boundary*/
+#pragma pack(5)     /* set alignment to 4 byte boundary*/
 
 struct LoggedData
 {
-	enum
-	{
-		JOINT_DOF = 6
-	};
+    enum
+    {
+      JOINT_DOF = 1
+    };
+    
+    double time;
+    double q[JOINT_DOF];
+    double qdot[JOINT_DOF];
+    double tau[JOINT_DOF];
+    double qdes[JOINT_DOF];
+    double qdotdes[JOINT_DOF];
+    
 
-	double time;
-	double q[JOINT_DOF];
-	double qdes[JOINT_DOF];
-	double tau[JOINT_DOF];
+  LoggedData()
+  : time(0.0), q{0.0}, qdot{0.0}, tau{0.0}, qdes{0.0}, qdotdes{0.0}
+  {}
 
-	LoggedData()
-	: time(0.0), q{0.0}, qdes{0.0}, tau{0,0}
-	{}
+  LoggedData(double time, const double *q, const double *qdot, const double *tau, const double *qdes, const double *qdotdes)
+  :time(time)
+  {
+    memcpy(this->q, q, JOINT_DOF*sizeof(double));
+    memcpy(this->qdot, qdot, JOINT_DOF*sizeof(double));
+    memcpy(this->tau, tau, JOINT_DOF*sizeof(double));
+    memcpy(this->qdes, qdes, JOINT_DOF*sizeof(double));
+    memcpy(this->qdotdes, qdotdes, JOINT_DOF*sizeof(double));
+  }
 
-	LoggedData(double time, const double * q, const double * qdes, const double * tau)
-	: time(time)
-	{
-		memcpy(this->q, q, JOINT_DOF*sizeof(double));
-		memcpy(this->qdes, qdes, JOINT_DOF*sizeof(double));
-		memcpy(this->tau, tau, JOINT_DOF*sizeof(double));
-	}
+  LoggedData(LoggedData const & data)
+  {
+    memcpy(this, &data, sizeof(LoggedData));
+  }
 
-	LoggedData(LoggedData const & data)
-	{
-		memcpy(this, &data, sizeof(LoggedData));
-	}
+  LoggedData & operator=(const LoggedData & data)
+  {
+    memcpy(this, &data, sizeof(LoggedData));
+    return(*this);
+  }
 
-	LoggedData & operator=(const LoggedData & data)
-	{
-		memcpy(this, &data, sizeof(LoggedData));
-		return (*this);
-	}
+  void update(double time, const double *q, const double *qdot, const double *tau, const double *qdes, const double *qdotdes)
+  {
+    this-> time = time;
+    
+    for(int i = 0; i < JOINT_DOF; i++)
+    {
+      this-> q[i] = q[i];
+      this-> qdot[i] = qdot[i];
+      this-> tau[i] = tau[i];
+      this-> qdes[i] = qdes[i];
+      this-> qdotdes[i] = qdotdes[i];
+    }
+  }
 
-	void update(double time, const double *q, const double *qdes, const double *tau)
-	{
-		this->time = time;
 
-		for (int i = 0; i < JOINT_DOF; i++)
-		{
-			this->q[i] = q[i];
-			this->qdes[i] = qdes[i];
-			this->tau[i] = tau[i];
-		}
-	}
 };
 
-#pragma pack(pop)   /*restore original alignment from stack*/
+#pragma pack(pop)  /* restore original alignment from stack*/
 
 #endif /*DATACONFIGURATION_H_*/
