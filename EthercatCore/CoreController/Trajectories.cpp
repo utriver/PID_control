@@ -11,13 +11,13 @@
 using namespace std;
 
 
-bool Controllers::read_trajectory(const char *trajectory_path)
+bool Controllers::read_trajectory(const char *trajectory_path, int filenum) 
 {
   fstream file_traj_pos, file_traj_vel, file_traj_acc;
 
-  sprintf(pos_trajectory,"%s%s",trajectory_path,"traj_pos_pos.csv");
-	sprintf(vel_trajectory,"%s%s",trajectory_path,"traj_vel_pos.csv");
-	sprintf(acc_trajectory,"%s%s",trajectory_path,"traj_acc_pos.csv");
+  sprintf(pos_trajectory, "%s%s.csv", trajectory_path, "traj_pos_pos");
+  sprintf(vel_trajectory, "%s%s.csv", trajectory_path, "traj_vel_pos");
+  sprintf(acc_trajectory, "%s%s.csv", trajectory_path, "traj_acc_pos");
 
   file_traj_pos.open(pos_trajectory);
 	file_traj_vel.open(vel_trajectory);

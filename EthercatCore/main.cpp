@@ -41,7 +41,10 @@
 
 #include "ServoAxis.h"
 #include "DataLogger/DataLogger.h"
+#include "FrictionDataLogger/FrictionDataLogger.h"
+#include "FrictionDatalogger/AgingDataLogger.h"
 #include "CoreController/Controllers.h"
+#include "COREsys.h"
 
 // PID gian value
 #define NUM_AXIS	(1)		//Modify this number to indicate the actual number of motor on the network
@@ -119,7 +122,7 @@ double desacc[NUM_AXIS] = {0,};
 double core_tor[NUM_AXIS] = {0,};
 
 /// TO DO: This is user-code.
-double sine_amp=50000, f=0.2, period;
+double sine_amp=50000, f=0.1, period;
 float degree =0;
 int InitFlag[NUM_AXIS] = {0};
 double qdes[NUM_AXIS] = {0}; // Desired position
@@ -146,10 +149,13 @@ UINT32 	DataOut[NUM_AXIS] = {0};
 UINT8 	ModeOfOperation[NUM_AXIS] = {0};
 UINT16	Controlword[NUM_AXIS] = {0};
 
+bool SAVE_MOVE_BUFFER = false;
+bool WRITE_MOVE_BUFFER = false;
+
 DataLogger _dataLogger;
 unsigned int _logCnt;
 double _time;
-#define LOG_DATA_SAVE_PERIOD  30*4000
+#define LOG_DATA_SAVE_PERIOD  180*4000
 
 ///// SDO Access /////////
 
@@ -169,6 +175,9 @@ Controllers _trajectory;
 Controllers _PIDctr;
 Controllers _filters;
 
+FrictionDataLogger _frictionDataLogger;
+AgingDataLogger _agingDataLogger;
+RobotControlData ctrlData;
 
 double qdes_lspb_init = 0;
 
@@ -182,6 +191,7 @@ RT_TASK EthercatCore_task;
 RT_TASK print_task;
 RT_TASK plot_task;
 RT_TASK gui_task;
+RT_TASK save_task;
 
 // For RT thread management
 static int run = 1;
@@ -345,103 +355,15 @@ double physical2ethercat(double control_signal)
 	for (int i=0; i<NUM_AXIS; ++i)
 	{
 		double temp_tau, temp_qdot;
-		
-			// temp_q = q[i]/deg2rad;
-			// temp_q *= GearRatio;
-			// temp_q *= EncoderResolution;
-			// TargetPos[i] = (INT32) temp_q + ZeroPos[i];
-			// change torque limit based on the max torque of the core
 		if (control_signal > maxtorq ) control_signal = maxtorq;
 		else if (control_signal < -maxtorq) control_signal = -maxtorq;
 		
 		temp_tau = control_signal * Nm2Cnt;
 		return (INT16) temp_tau;
 		break;
-		// case 1:
-		// 	temp_q = q[i]/deg2rad;
-		// 	temp_q *= GearRatio;
-		// 	temp_q *= EncoderResolution;
-		// 	TargetPos[i] = (INT32) temp_q + ZeroPos[i];
-		// 	break;
-		// case 2:
-		// 	temp_q = q[i]/deg2rad;
-		// 	temp_q *= GearRatio;
-		// 	temp_q *= EncoderResolution;
-		// 	TargetPos[i] = (INT32) temp_q + ZeroPos[i];
-		// 	break;
-		
 	}
 }
-/****************************************************************************/
-// int compute()
-// {
-// 	if (demo_mode == DEMO_MODE_TORQUE)
-// 	{
-// 		// CST
-// 		for (int i=0; i<NUM_AXIS; ++i)
-// 		{
-// 			if (system_ready)
-// 				TargetTor[i]= (int) degree*(sin(PI2*f*gt));
-// 			else
-// 			{
-// 				_systemInterface_EtherCAT_EthercatCore.setServoOn(i);	
-// 				TargetTor[i]=0;
-// 			}
-// 		}
-		
-// 	}
-// 	else if (demo_mode == DEMO_MODE_POSITION)
-// 	{
-// 		//CSP
-// 		for (int i=0; i<NUM_AXIS; ++i)
-// 		{
-// 			if (system_ready)
-// 			{
-// 				TargetPos[i]=(int) (sine_amp*(sin(PI2*f*gt))) + ZeroPos[i];
-// 			}
-// 			else if ((InitFlag[i]==0) && (ActualPos[i]!=0))
-// 			{
-// 				_systemInterface_EtherCAT_EthercatCore.setServoOn(i);	
-// 				TargetPos[i] = ZeroPos[i] = ActualPos[i];
-// 				InitFlag[i] = 1;
-// 			}
-// 		}
 
-// 	}
-// 	else
-// 	{
-// 		// For Command Control	
-// 		for (int i=0; i<NUM_AXIS; ++i)
-// 		{
-// 			Axis[i].setCurrentPosInCnt(ActualPos[i]);
-// 			Axis[i].setCurrentVelInCnt(ActualVel[i]);
-// 			Axis[i].setCurrentTorInCnt(ActualTor[i]);
-// 			Axis[i].setDataIn(DataIn[i]);
-			
-// 			Axis[i].setCurrentTime(gt);
-					
-// 			// Init Trajectory
-// 			if ((InitFlag[i] == 0) && (ModeOfOperation[i] == OP_MODE_CYCLIC_SYNC_POSITION))
-// 			{
-// 				if ((ActualPos[i] != 0) || (StatusWord[i] != 0))
-// 				{
-// 					TargetPos[i] = ActualPos[i];
-// 					Axis[i].setTarPosInCnt(ActualPos[i]);
-// 					InitFlag[i] = 1;
-// 				}			
-// 			}
-// 			else
-// 				_systemInterface_EtherCAT_EthercatCore.setServoOn(i);		
-			
-// 			TargetPos[i] = Axis[i].getDesPosInCnt();
-// 			TargetVel[i] = Axis[i].getDesVelInCnt();
-// 			TargetTor[i] = Axis[i].getDesTorInCnt();
-// 			DataOut[i] = Axis[i].getDataOut();
-// 		}
-// 	}
-	
-// 	return 0;
-// }
 double error_integral = 0;
 double kp=2600, ki=550, kd=1500;
 double error, error_dot;
@@ -466,23 +388,58 @@ void LowPassDerivative(const double & input_prev, const double& input_present, c
 	//cout<<"input_present:"<<input_present<<endl<<"input_prev:"<<input_prev<<endl;
 }
 
-double amplitude = 2.5;
-// void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
-// 	double omega = 2 * PI * f;
-// 	qdes = amplitude * (cos(omega* motion_time) - 1);
-// 	qdotdes = -amplitude * omega * sin(omega * motion_time);
-// 	qdotdotdes = -amplitude * omega * omega * cos(omega * motion_time);
-// }
-void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
-	_trajectory.gen_lspb_trajectory(true, qdes, qdotdes, qdotdotdes);
-}
 
+
+double amplitude=1;
+int cycle_count = 0;
+const int NUM_STEPS = 6;
+const double MIN_AMP = 0.001;
+const double MAX_AMP = 0.002;
+// void generate_sin_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
+// 	double omega = 2 * PI * f;
+	
+// 	// 한 주기가 끝났는지 확인
+// 	if(motion_time >= (1.0/f)) {
+// 		cycle_count++;
+// 		motion_time = 0;
+		
+// 		// 자연지수 함수 형태로 amplitude 증가
+// 		if(cycle_count < NUM_STEPS) {
+// 			double t = (double)cycle_count / (NUM_STEPS - 1);
+// 			amplitude = MIN_AMP + (MAX_AMP - MIN_AMP) * (exp(t) - 1) / (exp(1) - 1);
+// 		}
+// 	}
+
+// 	qdes = amplitude * (1-cos(omega* motion_time));
+// 	qdotdes = amplitude * omega * sin(omega * motion_time);
+// 	qdotdotdes = amplitude * omega * omega * cos(omega * motion_time);
+// }
+// void generate_sin_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
+// 	double omega = 2 * PI * f;
+// 	qdes = amplitude * (1-cos(omega* motion_time) );
+// 	qdotdes = amplitude * omega * sin(omega * motion_time);
+// 	qdotdotdes = amplitude * omega * omega * cos(omega * motion_time);
+// }
+// void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes,  bool gen){
+// 	_trajectory.gen_lspb_trajectory(gen, qdes, qdotdes, qdotdotdes);
+// }
+//ramp input
+void ramp_input(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
+	qdes = 0.0025*motion_time*motion_time;
+	qdotdes = 0.005*motion_time;
+	qdotdotdes = 0.005;
+}
 double motion_time = 0;
 bool initflag = true;
 bool flag_datalogging = true;
 int isInitLspb = 1;
 double q_init, qdes_lspb, qdes_prev;
 int ctr_traj = 0;
+bool gen = true;
+double qprev = 0;
+double last_increase_time = 0;
+double MAX_AMPLITUDE = 20.0;  // 최대 amplitude 값 설정 
+double MIN_AMPLITUDE = 5.0;
 int compute() {
     if (demo_mode == DEMO_MODE_TORQUE) {
 		if (system_ready)
@@ -493,25 +450,34 @@ int compute() {
 				{
     					// Start of Selection
     					q_init = q[i];   // 첫 번째 실제 위치
-					_dataLogger.activate();
+					WRITE_MOVE_BUFFER = true;
+					// _dataLogger.activate();
 					flag_datalogging = false;
 				}
 			
-			if(isInitLspb == 1)
-			{
+				if(isInitLspb == 1)
+				{
 					qdes_lspb_init = -qdes[i];   //first desired position
-				isInitLspb = 0;
-			}
+					isInitLspb = 0;
+				}
 
-			if(ctr_traj < _trajectory.max_traj_size)
-			{
-    				// Start of Selection
-    			qdes[i] = q_init + qdes[i] + qdes_lspb_init;
-			}
-			
-			ctr_traj++; //=motion_time
+				if(ctr_traj < _trajectory.max_traj_size-1)
+				{
+						// Start of Selection
+					qdes[i] = q_init + qdes[i] + qdes_lspb_init;
+				}else{
+					
+					const double q_last = 0.0061047 ;
+					gen = false;
+					qdes[i] = q_last;
+					ctr_traj = _trajectory.max_traj_size+1000000;
+					
+					// _dataLogger.deactivate();
+				}	
+				
+					ctr_traj++; //=motion_time
 
-				qdes_prev = qdes[i];
+					qdes_prev = qdes[i];
 			}
 		}
 
@@ -531,15 +497,33 @@ int compute() {
 					ZeroPos[i] = ActualPos[i];
 					if(ActualPos[0] != 0) initflag = false;					
 				}
-
+				// LowPassDerivative(qprev,q[i], qdot[i], fc, qdotdes[i]);
 				// generate trajectory 
-				generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
+				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
+				// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
                 // PID control for position, output as torque
-//				control_signal = pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
-				pid_control(qdes[i], q[i], qdot[i], qdotdes[i], control_signal);
+				
+				// pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
+				// control_signal = computed_torque[i];
+				// control_signal =(fc-amplitude)*sin(PI2*f*gt);
+				// control_signal =amplitude;
+				// 3주기마다 amplitude 증가코드
+				// static double prev_cycle = 0;
+				// if (gt >= (3.0/f) && gt - prev_cycle >= (3.0/f)) {
+				// 	if (amplitude > MIN_AMPLITUDE) {
+				// 		amplitude -= 5.0;
+				// 		prev_cycle = gt;
+				// 		printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
+				// 	}
+				// }
+				ramp_input(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
+				pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
+				// control_signal = amplitude*sin(PI2*f*fmod(gt, 3.0/f));
+				control_signal = computed_torque[i];
 				TargetTor[i] = physical2ethercat(control_signal);
 				// qdes[i] = _trajectory.gen_lspb_trajectory(true);
 				motion_time += period;
+				qprev=q[i];
             } else {
                 _systemInterface_EtherCAT_EthercatCore.setServoOn(i);
 				control_signal = 0;
@@ -559,6 +543,25 @@ int compute() {
         }
     }
     return 0;
+}
+int filenum1 = 1;
+int filenum2 = 1;
+void save_run(void *arg){
+	// initialize rt thread
+	rt_task_set_periodic(NULL, TM_NOW, cycle_ns);  // 10ms 1000000
+
+	while(run)
+	{
+		if (SAVE_MOVE_BUFFER)
+		{
+			_frictionDataLogger.write_rt_buffer(filenum2);
+			SAVE_MOVE_BUFFER = false;
+			WRITE_MOVE_BUFFER = false;
+			printf("save_run\n");
+		}
+
+		rt_task_wait_period(NULL);  // wait for next cycle
+	}
 }
 
 //extract constant velocity data from csv file
@@ -613,20 +616,51 @@ void EthercatCore_run(void *arg)
 		ethercat2physical();
 		/// TO DO: Main computation routine...
 		compute();
+		// if(system_ready)
+		// {
+    	// 		// Start of Selection
+    	// 		_dataLogger.updateLoggedData(_time, q, qdot, core_tor, qdes, qdotdes);
+		// 			// Triggering logger saving
+		// 	_logCnt--;
+		// 	if (_logCnt <= 0)
+		// 	{
+		// 		_dataLogger.triggerSaving();
+		// 		_logCnt = LOG_DATA_SAVE_PERIOD; // 10s
+		// 	}
+		// }
+
+		ctrlData.time = gt;
+		for (int i = 0; i < NUM_AXIS; i++)
+		{
+			ctrlData.q[i] = q[i];
+			//ctrlData.ActualPOS[i] = 0;
+			//ctrlData.ActualVel[i] = 0;
+			ctrlData.qdes[i] = qdes[i];
+			ctrlData.qdot[i] = qdot[i];
+			ctrlData.qdotdes[i] = qdotdes[i];
+//			ctrlData.qdotdes[i] = qddot[i];
+			ctrlData.coretor[i] = core_tor[i];  //Nm
+			//ctrlData.TargetTor[i] = TargetTor[i]; //Ethercat
+			//ctrlData.ActualTor[i] = ActualTor[i];
+			//ctrlData.sensortor[i] =  0 ;
+//			ctrlData.sensortemperature[i] = mech_tor/5;
+			//ctrlData.sensortemperature[i] = 0;
+		}
 		if(system_ready)
 		{
-    			// Start of Selection
-    			_dataLogger.updateLoggedData(_time, q, qdot, core_tor, qdes, qdotdes);
-					// Triggering logger saving
-			_logCnt--;
-			if (_logCnt <= 0)
-			{
-				_dataLogger.triggerSaving();
-				_logCnt = LOG_DATA_SAVE_PERIOD; // 10s
+			if(WRITE_MOVE_BUFFER){
+				_frictionDataLogger.update_rt_buffer(ctrlData);
+//				printf("******* START writing to the buffer *****\n");
+
+				if (_frictionDataLogger.isRTbufferFilled)
+				{
+//					printf("*******Buffer is full. Start saving data *****\n");
+					WRITE_MOVE_BUFFER = false;
+					SAVE_MOVE_BUFFER = true;
+					_frictionDataLogger.isRTbufferFilled = false;
+				}
 			}
 		}
-
-	
 		
 		/// TO DO: write data to actuators in EtherCAT system interface
 		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x607a0, TargetPos);
@@ -637,7 +671,8 @@ void EthercatCore_run(void *arg)
 		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x60400, Controlword);		
 		*/
 		_systemInterface_EtherCAT_EthercatCore.processRxDomain();
-
+		// double senstor = m8010_target_torque;
+		
 		if (system_ready)
 			saveLogData();
 			
@@ -655,230 +690,7 @@ void EthercatCore_run(void *arg)
 			if(ethercat_time > max_time)
 				++fault_count;
 		}
-		double last_qdes = _trajectory._qdes_traj_pos[_trajectory.max_traj_size-1];
-	// Start of Selection
-		if (qdes[0] == last_qdes)
-		{
-			run = 0;
-			_dataLogger.deactivate();
-			sleep(4);
-			
 		
-			
-			std::string inputFileName = "/home/user/release/SampleLoggingFile.csv";    // 입력 CSV 파일 이름
-			std::string outputFileName1 = "/home/user/release/extractdata/v1.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName2 = "/home/user/release/extractdata/_v1.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName3 = "/home/user/release/extractdata/v2.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName4 = "/home/user/release/extractdata/_v2.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName5 = "/home/user/release/extractdata/v3.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName6 = "/home/user/release/extractdata/_v3.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName7 = "/home/user/release/extractdata/v4.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName8 = "/home/user/release/extractdata/_v4.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName9 = "/home/user/release/extractdata/v5.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName10 = "/home/user/release/extractdata/_v5.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName11 = "/home/user/release/extractdata/v6.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName12 = "/home/user/release/extractdata/_v6.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName13 = "/home/user/release/extractdata/v7.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName14 = "/home/user/release/extractdata/_v7.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName15 = "/home/user/release/extractdata/v8.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName16 = "/home/user/release/extractdata/_v8.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName17 = "/home/user/release/extractdata/v9.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName18 = "/home/user/release/extractdata/_v9.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName19 = "/home/user/release/extractdata/v10.csv";  // 출력 CSV 파일 이름
-			std::string outputFileName20 = "/home/user/release/extractdata/_v10.csv";  // 출력 CSV 파일 이름
-
-			std::ifstream inputFile(inputFileName);
-			if (!inputFile.is_open()) {
-				printf("CSV not found");
-				exit(0);
-			
-			}
-			
-
-			// 효율적인 파일 열기 검사
-			std::ofstream outputFile1(outputFileName1);
-			std::ofstream outputFile2(outputFileName2);
-			std::ofstream outputFile3(outputFileName3);
-			std::ofstream outputFile4(outputFileName4);
-			std::ofstream outputFile5(outputFileName5);
-			std::ofstream outputFile6(outputFileName6);
-			std::ofstream outputFile7(outputFileName7);
-			std::ofstream outputFile8(outputFileName8);
-			std::ofstream outputFile9(outputFileName9);
-			std::ofstream outputFile10(outputFileName10);
-			std::ofstream outputFile11(outputFileName11);
-			std::ofstream outputFile12(outputFileName12);
-			std::ofstream outputFile13(outputFileName13);
-			std::ofstream outputFile14(outputFileName14);
-			std::ofstream outputFile15(outputFileName15);
-			std::ofstream outputFile16(outputFileName16);
-			std::ofstream outputFile17(outputFileName17);
-			std::ofstream outputFile18(outputFileName18);
-			std::ofstream outputFile19(outputFileName19);
-			std::ofstream outputFile20(outputFileName20);
-
-			std::vector<std::pair<std::ofstream*, std::string>> outputFiles = {
-				{&outputFile1, outputFileName1},
-				{&outputFile2, outputFileName2},
-				{&outputFile3, outputFileName3},
-				{&outputFile4, outputFileName4},
-				{&outputFile5, outputFileName5},
-				{&outputFile6, outputFileName6},
-				{&outputFile7, outputFileName7},
-				{&outputFile8, outputFileName8},
-				{&outputFile9, outputFileName9},
-				{&outputFile10, outputFileName10},
-				{&outputFile11, outputFileName11},
-				{&outputFile12, outputFileName12},
-				{&outputFile13, outputFileName13},
-				{&outputFile14, outputFileName14},
-				{&outputFile15, outputFileName15},
-				{&outputFile16, outputFileName16},
-				{&outputFile17, outputFileName17},
-				{&outputFile18, outputFileName18},
-				{&outputFile19, outputFileName19},
-				{&outputFile20, outputFileName20}
-			};
-
-			for (const auto& filePair : outputFiles) {
-				if (!filePair.first->is_open()) {
-					std::cerr << "Failed to open output file: " << filePair.second << std::endl;
-					exit(1);
-				}
-			}
-
-			std::string line;
-			while (std::getline(inputFile, line)) {
-				// 각 행을 콤마로 분리
-				std::vector<std::string> columns = split(line, ',');
-
-				// 6번째 열이 있는지 확인
-				if (columns.size() >= 6) {
-					try {
-						// 6번째 열의 값을 실수로 변환
-						double value = std::stod(columns[5]);
-
-						// 값이 0.5인지 확인 0.05,0.19287,0.45579,0.93962, 1.83
-						
-							// Start of Selection
-							if (value == 0.05) {
-								*(outputFiles[0].first) << line << "\n";
-							}
-							else if (value == -0.05) {
-								*(outputFiles[1].first) << line << "\n";
-							}
-							else if (value == 0.10294) {
-								*(outputFiles[2].first) << line << "\n";
-							}
-							else if (value == -0.10294) {
-								*(outputFiles[3].first) << line << "\n";
-							}
-							else if (value == 0.17237) {
-								*(outputFiles[4].first) << line << "\n";
-							}
-							else if (value == -0.17237) {
-								*(outputFiles[5].first) << line << "\n";
-							}
-							else if (value == 0.26342) {
-								*(outputFiles[6].first) << line << "\n";
-							}
-							else if (value == -0.26342) {
-								*(outputFiles[7].first) << line << "\n";
-							}
-							else if (value == 0.38281) {
-								*(outputFiles[8].first) << line << "\n";
-							}
-							else if (value == -0.38281) {
-								*(outputFiles[9].first) << line << "\n";
-							}
-							else if (value == 0.53937) {
-								*(outputFiles[10].first) << line << "\n";
-							}
-							else if (value == -0.53937) {
-								*(outputFiles[11].first) << line << "\n";
-							}
-							else if (value == 0.74468) {
-								*(outputFiles[12].first) << line << "\n";
-							}
-							else if (value == -0.74468) {
-								*(outputFiles[13].first) << line << "\n";
-							}
-							else if (value == 1.0139) {
-								*(outputFiles[14].first) << line << "\n";
-							}
-							else if (value == -1.0139) {
-								*(outputFiles[15].first) << line << "\n";
-							}
-							else if (value == 1.367) {
-								*(outputFiles[16].first) << line << "\n";
-							}
-							else if (value == -1.367) {
-								*(outputFiles[17].first) << line << "\n";
-							}
-							else if (value == 1.83) {
-								*(outputFiles[18].first) << line << "\n";
-							}
-							else if (value == -1.83) {
-								*(outputFiles[19].first) << line << "\n";
-							}
-
-
-					} catch (const std::invalid_argument& e) {
-						// 변환 실패 시 무시
-						continue;
-					} catch (const std::out_of_range& e) {
-						// 값이 너무 클 경우 무시
-						continue;
-					}
-				}
-			}
-
-			inputFile.close();
-    			// Start of Selection
-			outputFiles[0].first->close();
-			outputFiles[1].first->close();
-			outputFiles[2].first->close();
-			outputFiles[3].first->close();
-			outputFiles[4].first->close();
-			outputFiles[5].first->close();
-			outputFiles[6].first->close();
-			outputFiles[7].first->close();
-			outputFiles[8].first->close();
-			outputFiles[9].first->close();
-			outputFiles[10].first->close();
-			outputFiles[11].first->close();
-			outputFiles[12].first->close();
-			outputFiles[13].first->close();
-			outputFiles[14].first->close();
-			outputFiles[15].first->close();
-			outputFiles[16].first->close();
-			outputFiles[17].first->close();
-			outputFiles[18].first->close();
-			outputFiles[19].first->close();
-
-
-			std::cout << "Filtered data is saved in " << outputFileName1 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName2 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName3 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName4 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName5 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName6 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName7 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName8 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName9 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName10 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName11 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName12 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName13 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName14 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName15 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName16 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName17 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName18 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName19 << std::endl;
-			std::cout << "Filtered data is saved in " << outputFileName20 << std::endl;
-			exit(0);
-		}
 
 	}
 
@@ -950,6 +762,7 @@ void print_run(void *arg)
 
 				rt_printf("\e[32;1m\t q: %f,  \e[0m\n", 	 	q[i]);
 				rt_printf("\e[32;1m\t qdes: %f,  \e[0m\n", 	 	qdes[i]);
+				rt_printf("\e[32;1m\t qdot: %f,  \e[0m\n", 	 	qdot[i]);
 				rt_printf("\e[32;1m\t computed_torque: %f,  \e[0m\n", 	 	computed_torque[i]);
 				rt_printf("\e[32;1m\t ActualTor: %i,  \e[0m\n", 	 	ActualTor[i]);
 				rt_printf("\e[32;1m\t TargetPos: %i,  \e[0m\n", 	 	TargetPos[i]);
@@ -957,6 +770,7 @@ void print_run(void *arg)
 				rt_printf("\e[32;1m\t TargetTor: %i,  \e[0m\n", 	 	TargetTor[i]);
 				rt_printf("\e[32;1m\t error: %f,  \e[0m\n", 	 	error);
 				rt_printf("\e[32;1m\t error_dot: %f,  \e[0m\n", 	 	error_dot);
+				
 				
 
 			}
@@ -1086,11 +900,13 @@ void plot_run(void *arg)
 /****************************************************************************/
 void signal_handler(int signum = 0)
 {
-	_dataLogger.deactivate();
+	// _dataLogger.deactivate();
+	rt_task_delete(&save_task);
 	rt_task_delete(&plot_task);
 	rt_task_delete(&gui_task);
 	rt_task_delete(&EthercatCore_task);
 	rt_task_delete(&print_task);
+	
     printf("Servo drives Stopped!\n");
 
     _systemInterface_EtherCAT_EthercatCore.deinit();
@@ -1112,20 +928,25 @@ int main(int argc, char **argv)
 	mlockall(MCL_CURRENT|MCL_FUTURE);
 	if (argc>1)
 	{
-		amplitude = atof(argv[1]);
+		filenum2 = atof(argv[1]);
 	}
+
 	if (argc>2)
 	{
 		kp = atof(argv[2]);
 	}
-		if (argc>3)
+	if (argc>3)
 	{
-		kd = atof(argv[3]);
+		kd=atof(argv[3]);
 	}
 	if (argc>4)
 	{
 		ki=atof(argv[4]);
 	}
+	// if (argc>5)
+	// {
+	// 	i=atof(argv[5]);
+	// }
 
 
 	// double kp=1, ki=0.1, kd=0.1;
@@ -1174,10 +995,19 @@ int main(int argc, char **argv)
 	// For trajectory interpolation
 	initAxes();
 	//confirm the trajectory file is loaded
-	if (!_trajectory.read_trajectory("/home/user/release/data_csvFile/")) {
+	char traj2[] = "/home/user/release/Logging/Realtime_data/";
+	char traj3[] = "/home/user/release/Logging/Average_data/";
+	if(!_frictionDataLogger.set_logging_path(traj2,traj3))
+	{
+		printf("Set Data Logger Path\n");
+		exit(1);
+	}
+	if (!_trajectory.read_trajectory("/home/user/release/data_csvFile/", filenum1)) {
+			printf("Set Data Logger Path\n");
 			exit(1);
 		}
-	printf("trajectory file is loaded\n");
+
+	// printf("trajectory file is loaded\n");
 	// std::cout << "Trajectory Positions:" << std::endl;
     // for (size_t i = 0; i < _trajectory._qdes_traj_pos.size(); ++i) {
     //     std::cout << "Position [" << i << "]: " << _trajectory._qdes_traj_pos[i] << std::endl;
@@ -1204,6 +1034,10 @@ int main(int argc, char **argv)
 
 	rt_task_create(&EthercatCore_task, "EthercatCore_task", 0, 99, 0);
 	rt_task_start(&EthercatCore_task, &EthercatCore_run, NULL);
+
+	// save: create and start
+	rt_task_create(&save_task, "saving", 0, 90, 0); //int rt_task_create(RT_TASK *task, const char *name, int stksize, 우선순위, int mode);
+	rt_task_start(&save_task, &save_run, NULL);
 
 	// printing: create and start
 	rt_task_create(&print_task, "printing", 0, 80, 0);
