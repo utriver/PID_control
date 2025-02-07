@@ -43,6 +43,8 @@ void FrictionDataLogger::write_rt_buffer(int filenum)
         // for (int j = 0; j < NUM_AXIS; j++)
         //     _rtLogger_save[i].ActualPOS[j] = _loggingBuff_ctrl[i].ActualPOS[j];
         for (int j = 0; j < NUM_AXIS; j++)
+            _rtLogger_save[i].friction_torque[j] = _loggingBuff_ctrl[i].friction_torque[j];
+        for (int j = 0; j < NUM_AXIS; j++)
             _rtLogger_save[i].coretor[j] = _loggingBuff_ctrl[i].coretor[j];
         // for (int j = 0; j < NUM_AXIS; j++)
         //     _rtLogger_save[i].sensortor[j] = _loggingBuff_ctrl[i].sensortor[j];
@@ -78,6 +80,7 @@ void FrictionDataLogger::write_rt_buffer(int filenum)
             fprintf(file,"%f, ", _rtLogger_save[i].qdotdes[j]); 	// 5 : E
             // fprintf(file,"%f, ", _rtLogger_save[i].qddot[j]); 		// 6 : F
             // fprintf(file,"%i, ", _rtLogger_save[i].ActualPOS[j]); 	// 7 : G
+            fprintf(file,"%f, ", _rtLogger_save[i].friction_torque[j]); 	// 8 : H
             fprintf(file,"%f, ", _rtLogger_save[i].coretor[j]); 	// 8 : H
             // fprintf(file,"%f, ", _rtLogger_save[i].sensortor[j]); 	// 9 : I
             // fprintf(file,"%i, ", _rtLogger_save[i].ActualTor[j]); 	// 10 : J

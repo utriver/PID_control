@@ -11,5 +11,6 @@ ec_pdo_entry_info_t Neuromeka_NRMK_Drive_pdo_entries[] =
 	{0x606c,	0,	32},	/* Velocityactualvalue */
 	{0x6077,	0,	16},	/* Torqueactualvalue */
 	{0x6061,	0,	8},	/* Modesofoperationdisplay */
+	{0x6065,	0,	16},	/* Actualtemperature */
 };
 

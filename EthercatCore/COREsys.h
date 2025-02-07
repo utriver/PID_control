@@ -68,6 +68,7 @@ struct RobotControlData
 	double qdotdes[NUM_AXIS];
 	double qddot[NUM_AXIS];
 	double qddotdes[NUM_AXIS];
+	double friction_torque[NUM_AXIS];
 	double coretor[NUM_AXIS];
 	double sensortor[NUM_AXIS];
 	double gravtor[NUM_AXIS];

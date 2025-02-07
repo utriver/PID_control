@@ -141,6 +141,7 @@ UINT8	ModeOfOperationDisplay[NUM_AXIS] = {0};
 double integral_error[NUM_AXIS] = {0};
 double previous_error[NUM_AXIS] = {0};
 double computed_torque[NUM_AXIS] = {0};
+double friction_torque[NUM_AXIS] = {0};
 
 INT32 	TargetPos[NUM_AXIS] = {0};
 INT32 	TargetVel[NUM_AXIS] = {0};
@@ -363,10 +364,194 @@ double physical2ethercat(double control_signal)
 		break;
 	}
 }
-
+void stribeck_friction(double qdotdes, double &friction_torque){
+	double Fc = 12.9389;
+	double Fs = 14.2153;
+	double Vs = 0.0002;
+	double delta_s = 2.0000;
+	double s2 = 42.9204;
+	friction_torque = Fc + (Fs - Fc) * exp(-(qdotdes / Vs) * (qdotdes / Vs)) + s2*qdotdes;
+}
 double error_integral = 0;
-double kp=2600, ki=550, kd=1500;
 double error, error_dot;
+void arctan_friction(double qdotdes, double &friction_torque){
+	double t_s = 21.4256;
+	double t_sc = 0.81609;
+	double t_v = 55.3774;
+	double t_nlv = -20.9042;
+	double Kv = 111;
+	double delt = 9;
+	double v = qdotdes;
+	friction_torque = t_s*(2/PI)*atan(Kv*v)+t_sc*(2/PI)*atan(v*delt)+t_v*v+t_nlv*v*v*(2/PI)*atan(v*Kv);
+	
+}
+double dz=0;
+double g_v=0;
+double z_=0;
+void Lugre_friction(double qdotdes, double &friction_torque)
+{
+	double Fc = 12.9389;
+	double Fs = 14.2153;
+	double Vs = 0.0002;
+    double s0 = 10.536233;
+    double s1 = 2169.214629;
+   	double s2 = 42.9204; 
+
+    // 마찰 계수 계산
+    double g_v = Fc + (Fs - Fc) * exp(-(qdotdes / Vs) * (qdotdes / Vs));
+
+    // dz 계산 (시간 간격 dt를 고려)
+    double dt = 0.00025;  // 메인 코드와 동일한 시간 간격
+    dz = qdotdes - (s0 * abs(qdotdes) * z_) / g_v;
+    z_ = z_ + dz * dt;  // 적분을 위해 dt를 곱함
+    friction_torque = s0*z_+s1*dz+s2*qdotdes;
+}
+    
+
+int gms_counter=0;
+#define N_MAXWELL 8
+double z[N_MAXWELL] = {0};
+// void GMS_friction(double qdotdes, double &friction_torque)
+// {
+//     // 함수 시작시 friction_torque 초기화
+//     friction_torque = 0;
+
+//     int N = 8;
+//     double k_opt[8] = {143921.11506902, 39798223.8440106, 9363611.67828457, 67095.0889746429, 2558.20756818028, 27105750.4476824, 582985.183877143, 21357.4720391935};
+//     double alpha_opt[8] = {0.277393295043814, 0.00185094082631222, 0.00365359131352696, 0.0100222860136948, 0.000445794147046117, 0.00290450020743669, 0.165052094736506, 0.100926088108215};
+//     double C_opt = 27.5392; // 마찰 지연 상수 //전체 크기가 커짐
+//     double vs_opt =0.95987; // 스트리벡 속도
+//     double sigma_opt = 453.9787; // 점성 계수 //곡선의 최대값이 커짐
+//     double Fs = 21.4256; // 정적 마찰력
+//     double Fc = 21.4256 - 0.81609; // 쿨롱 마찰력
+//     double dt = 0.00025;
+//     double s_v = Fc+(Fs-Fc)*exp(-pow(qdotdes/vs_opt,2));
+
+//     for(int n = 0; n < N; n++) {
+//         // 슬라이딩 상태 및 스틱킹 상태 처리
+//         if(gms_counter == 0) {
+//             z[n] = 0;
+//         }
+//         if(fabs(z[n]) < alpha_opt[n] * s_v/k_opt[n] && fabs(qdotdes) < 1e-4) {
+//             // 스틱킹 상태
+//             dz = qdotdes;
+// 			z[n] = z[n] + dz * dt;
+// 			friction_torque = friction_torque + k_opt[n] * z[n] + alpha_opt[n]*dz;
+//     }
+//         }
+//         else {
+//             // 슬라이딩 상태 
+//             dz = (C_opt * alpha_opt[n] / k_opt[n]) * ((qdotdes > 0 ? 1 : -1) - z[n] / (alpha_opt[n]*s_v/k_opt[n]));
+//         }
+//         // Maxwell 요소 상태 변수 업데이트
+        
+       
+        
+        
+//     // 점성 마찰력 추가
+//     friction_torque += sigma_opt * qdotdes;
+// }
+//  k = [66303.2909367738 66269.1682674476 66269.1063012516 2218793.36418749 2218793.32895251 317144.651565354 76718.3549064896 79123.4139371207 72558.6517033946 26765.7477754477 69870.0545341115 69838.745372707] ;      % 스프링 강성 계수;
+//     alpha = [1.06492775941585 0.336883063963703 0.311386740179736 0.0209920389271211 0.0209920407778812 0.000255451067173599 0.00544452340345758 0.0130509874191778 0.00293665997264368 0.000255451092472014 0.000255450936089651 0.000255450906153214] ; % Maxwell 요소 가중치;
+//     C = 9.3593 ;     % 마찰 지연 상수;
+//     Fs = 7.1638 ;    % 정적 마찰력 (고정값);
+//     Fc = 363.4886 ;     % 쿨롱 마찰력 (고정값);
+//     vs = 7.3514 ;     % 스트리벡 속도;
+//     sigma = 38.4811 ; % 점성 계수;
+
+void GMS_friction(double qdotdes, double &friction_torque) {
+    // 함수 시작 시 friction_torque 초기화
+    friction_torque = 0;
+
+    int N = 12;
+    // double k_opt[12] = {27918.2099063506, 27918.2114986032, 27918.2114893848, 27918.2124468587, 27918.2139948123, 27918.2156108475, 27918.2139913077, 27918.2124096552, 27918.212416005, 1141452.61311876, 28053.3165531205, 1303464.25814965};
+
+	// double alpha_opt[12] = {0.0140792890679116, 0.0572528102734696, 0.0572528066850993, 0.0140792889142508, 0.0572528077023147, 0.0140792885720547, 0.0140792898955194, 0.057252808397232, 0.0407344224689363, 0.0119868930504995, 0.854479101852907, 0.0119868930949691};
+	// double C_opt = 10.9834;
+	// double Fs = 14.2153;
+	// double Fc = 12.9389;
+	// double vs = 0.0002;
+	// double sigma_opt = 42.9204;
+	// double k_opt[12] = {10864.4981169525, 255946.337508348, 5358.61846628718, 8521.54330238144, 12226.1184337744, 5317.80984723001, 5482.69851411415, 5317.809847222, 5792.26304968909, 5317.809847222, 5327.21815007195, 5317.809847222};
+    // double alpha_opt[12] = {0.0617891128805635, 0.275569529121443, 0.0253912332602835, 0.0641477183062394, 0.0226653264437337, 0.0199929711739063, 0.012487357230447, 0.281386687643029, 0.0720593102642443, 0.0309771546691873, 0.0146741386208741, 0.0303694403235407};
+	// double C_opt =  9.3593;
+	// double Fs = 14.2153;
+	// double Fc = 12.9389;
+	// double vs = 0.0002;
+	// double sigma_opt = 42.9204;
+	//double k_opt[12] = {10888.2725255115, 342731.64421358, 5714.58673959759, 8751.52680196208, 9548.11184497022, 3202.73110165654, 6119.42415663208, 3864.28688129092, 100835.040665468, 4940.56713878274, 4479.5852236283, 4746.98089674031};
+	//double alpha_opt[12] = {0.0350572514687255, 0.276258619901774, 0.0699630908826632, 0.0889833734956643, 0.0233291676452308, 0.0325846904159466, 0.0253456347872363, 0.280531797892668, 0.0477475626555615, 0.0200208660414608, 0.0119052206767593, 0.0173292659500855};
+	//ouble C_opt = 14546.4614;
+	//double Fs = 14.2153;
+	//double Fc = 12.9389;
+	//double vs = 0.0002;
+	//double sigma_opt = 42.9204;
+	//stribeck,v=0.0008
+	double k_opt[12] = {177622.928544251, 44660.6234869604, 408487.823480988, 2113.37547445184, 425610.933168765, 16783.7073679804, 1433294.23402738, 770582.341157389, 258003.323607, 1189689.73147036, 434197.962372017, 13125.0497364916};
+	double alpha_opt[12] = {0.136873837388196, 0.0835560477105503, 0.00747718305579766, 0.126738956508169, 0.0545629481476721, 0.177542791292639, 0.018442480552487, 0.0153304490558945, 0.00594541318346043, 0.00280037487231405, 0.0038631523629545, 0.0534922051009204};
+	double C_opt = 8351.7184;
+	double Fs = 15;
+	double Fc = 14.4387;
+	double vs = 0.0003;
+	double sigma_opt = 38.5725;
+
+    double dt = 0.00025; // 시간 간격
+	double t_s = 21.4256;
+	double t_sc = 0.81609;
+	double t_v = 100.3774;
+	double t_nlv = -20.9042;
+	double Kv = 111;
+	double delt = 9;
+	double v = qdotdes;
+	double s_v= t_s+t_sc*atan(v*delt);
+	double f_v= t_v*v+t_nlv*v*v*atan(v*Kv);
+    // Stribeck 마찰력 계산
+    // double s_v = Fc + (Fs - Fc) * exp(-pow(qdotdes / vs, 2));
+
+
+    
+
+    for (int n = 0; n < N; n++) {
+        double dz = 0.0; // 상태 변화량 초기화
+
+		// 저속 영역: 스틱킹 및 프리슬라이딩
+		if (fabs(z[n]) < alpha_opt[n] * s_v / k_opt[n] && fabs(qdotdes) < 1e-3*5) {
+			dz = qdotdes;  // 스틱킹 상태에서는 속도에 의해 상태가 변함
+		} else {
+			dz = (C_opt * alpha_opt[n] / k_opt[n]) * ((qdotdes > 0 ? 1 : -1) - z[n] / (alpha_opt[n] * s_v / k_opt[n]));
+		}
+        
+
+        // Maxwell 요소 상태 변수 업데이트
+        z[n] = z[n] + dz * dt;
+
+        // 마찰 토크 계산
+        friction_torque += k_opt[n] * z[n] + alpha_opt[n] * dz;
+    }
+
+    // 점성 마찰력 추가 (고속 영역에서도 적용)
+    // double viscous_friction = sigma_opt * qdotdes;
+	friction_torque += f_v;
+
+}
+
+double kp =  2500;
+double kd = 550;
+double ki = 1500;
+void pid_control_friction(double qdes, double q, double qdot, double qdotdes, double &computed_torque, double friction_torque) {
+    
+    error = qdes - q;
+	error_dot = qdotdes - qdot;
+
+
+//	computed_torque = kp * error - kd * qdot;
+	computed_torque = 3.5*(kp * error + kd * error_dot + ki * error_integral);
+//	error_integral += 0.001 * error; //1kHz
+	error_integral += 0.00025 * error;
+//	return computed_torque;
+	//feedforward
+	computed_torque +=friction_torque;
+}
 
 void pid_control(double qdes, double q, double qdot, double qdotdes, double &computed_torque) {
     error = qdes - q;
@@ -377,8 +562,8 @@ void pid_control(double qdes, double q, double qdot, double qdotdes, double &com
 //	error_integral += 0.001 * error; //1kHz
 	error_integral += 0.00025 * error;
 //	return computed_torque;
-
 }
+
 
 void LowPassDerivative(const double & input_prev, const double& input_present, const double& output_prev, const double& cutoff , double& output){
 //	double _delT=0.001;
@@ -390,7 +575,7 @@ void LowPassDerivative(const double & input_prev, const double& input_present, c
 
 
 
-double amplitude=1;
+double amplitude=0.1;
 int cycle_count = 0;
 const int NUM_STEPS = 6;
 const double MIN_AMP = 0.001;
@@ -414,21 +599,16 @@ const double MAX_AMP = 0.002;
 // 	qdotdes = amplitude * omega * sin(omega * motion_time);
 // 	qdotdotdes = amplitude * omega * omega * cos(omega * motion_time);
 // }
-// void generate_sin_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
-// 	double omega = 2 * PI * f;
-// 	qdes = amplitude * (1-cos(omega* motion_time) );
-// 	qdotdes = amplitude * omega * sin(omega * motion_time);
-// 	qdotdotdes = amplitude * omega * omega * cos(omega * motion_time);
-// }
+void generate_sin_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
+	double omega = 2 * PI * f;
+	qdes = amplitude * (1-cos(omega* motion_time) );
+	qdotdes = amplitude * omega * sin(omega * motion_time);
+	qdotdotdes = amplitude * omega * omega * cos(omega * motion_time);
+}
 // void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes,  bool gen){
 // 	_trajectory.gen_lspb_trajectory(gen, qdes, qdotdes, qdotdotdes);
 // }
-//ramp input
-void ramp_input(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
-	qdes = 0.0025*motion_time*motion_time;
-	qdotdes = 0.005*motion_time;
-	qdotdotdes = 0.005;
-}
+
 double motion_time = 0;
 bool initflag = true;
 bool flag_datalogging = true;
@@ -440,6 +620,7 @@ double qprev = 0;
 double last_increase_time = 0;
 double MAX_AMPLITUDE = 20.0;  // 최대 amplitude 값 설정 
 double MIN_AMPLITUDE = 5.0;
+double motion_number;
 int compute() {
     if (demo_mode == DEMO_MODE_TORQUE) {
 		if (system_ready)
@@ -497,16 +678,36 @@ int compute() {
 					ZeroPos[i] = ActualPos[i];
 					if(ActualPos[0] != 0) initflag = false;					
 				}
+
 				// LowPassDerivative(qprev,q[i], qdot[i], fc, qdotdes[i]);
 				// generate trajectory 
 				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
-				// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
-                // PID control for position, output as torque
-				
-				// pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
-				// control_signal = computed_torque[i];
+				generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
+				if (motion_number == 0)
+				{pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);}
+				else if (motion_number == 1)
+				{	
+					stribeck_friction(qdotdes[i], friction_torque[i]);
+					pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
+				}
+				else if (motion_number == 2)
+				{
+					arctan_friction(qdotdes[i], friction_torque[i]);
+					pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
+				}
+				else if (motion_number == 3)
+				{
+					Lugre_friction(qdotdes[i], friction_torque[i]);
+					pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
+				}
+				else if (motion_number == 4)
+				{
+					GMS_friction(qdotdes[i], friction_torque[i]);
+					pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
+				}
 				// control_signal =(fc-amplitude)*sin(PI2*f*gt);
 				// control_signal =amplitude;
+
 				// 3주기마다 amplitude 증가코드
 				// static double prev_cycle = 0;
 				// if (gt >= (3.0/f) && gt - prev_cycle >= (3.0/f)) {
@@ -516,11 +717,15 @@ int compute() {
 				// 		printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
 				// 	}
 				// }
-				ramp_input(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
-				pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
+				// ramp_input(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
+				// pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
 				// control_signal = amplitude*sin(PI2*f*fmod(gt, 3.0/f));
 				control_signal = computed_torque[i];
+				
+				// GMS_friction(qdotdes[i], friction_torque[i]);
+				// control_signal = friction_torque[i];
 				TargetTor[i] = physical2ethercat(control_signal);
+				// TargetTor[i] = physical2ethercat(control_signal);
 				// qdes[i] = _trajectory.gen_lspb_trajectory(true);
 				motion_time += period;
 				qprev=q[i];
@@ -639,8 +844,9 @@ void EthercatCore_run(void *arg)
 			ctrlData.qdot[i] = qdot[i];
 			ctrlData.qdotdes[i] = qdotdes[i];
 //			ctrlData.qdotdes[i] = qddot[i];
+			ctrlData.friction_torque[i] = friction_torque[i];
 			ctrlData.coretor[i] = core_tor[i];  //Nm
-			//ctrlData.TargetTor[i] = TargetTor[i]; //Ethercat
+			ctrlData.TargetTor[i] = TargetTor[i]; //Ethercat
 			//ctrlData.ActualTor[i] = ActualTor[i];
 			//ctrlData.sensortor[i] =  0 ;
 //			ctrlData.sensortemperature[i] = mech_tor/5;
@@ -667,6 +873,7 @@ void EthercatCore_run(void *arg)
 		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x60ff0, TargetVel);
 		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x60710, TargetTor);
 		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x60600, ModeOfOperation);
+		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x60650, friction_torque);
 		/*
 		_systemInterface_EtherCAT_EthercatCore.writeBuffer(0x60400, Controlword);		
 		*/
@@ -770,6 +977,7 @@ void print_run(void *arg)
 				rt_printf("\e[32;1m\t TargetTor: %i,  \e[0m\n", 	 	TargetTor[i]);
 				rt_printf("\e[32;1m\t error: %f,  \e[0m\n", 	 	error);
 				rt_printf("\e[32;1m\t error_dot: %f,  \e[0m\n", 	 	error_dot);
+				rt_printf("\e[32;1m\t friction_torque: %f,  \e[0m\n", 	 	friction_torque[i]);
 				
 				
 
@@ -930,23 +1138,34 @@ int main(int argc, char **argv)
 	{
 		filenum2 = atof(argv[1]);
 	}
-
 	if (argc>2)
 	{
-		kp = atof(argv[2]);
+		motion_number = atof(argv[2]);
+		// 움직임 번호 설정
+		//0: not apply
+		//1: stribeck
+		//2: arctan
+		//3: lugre
+		//4: GMS
 	}
 	if (argc>3)
 	{
-		kd=atof(argv[3]);
+		amplitude = atof(argv[3]);
 	}
+
 	if (argc>4)
 	{
-		ki=atof(argv[4]);
+		kp=atof(argv[4]);
 	}
-	// if (argc>5)
-	// {
-	// 	i=atof(argv[5]);
-	// }
+	if (argc>5)	
+	{
+		kd=atof(argv[5]);
+	}
+	if (argc>6)
+	{
+		ki=atof(argv[6]);
+	}
+
 
 
 	// double kp=1, ki=0.1, kd=0.1;
@@ -995,9 +1214,10 @@ int main(int argc, char **argv)
 	// For trajectory interpolation
 	initAxes();
 	//confirm the trajectory file is loaded
-	char traj2[] = "/home/user/release/Logging/Realtime_data/";
-	char traj3[] = "/home/user/release/Logging/Average_data/";
+	char traj2[] = "/home/user/release/performance_test/RT_test/";
+	char traj3[] = "/home/user/release/performance_test/Avg_test/";
 	if(!_frictionDataLogger.set_logging_path(traj2,traj3))
+
 	{
 		printf("Set Data Logger Path\n");
 		exit(1);
