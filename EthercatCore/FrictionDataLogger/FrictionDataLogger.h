@@ -24,7 +24,7 @@ public:
     ~FrictionDataLogger ();
 
 public:
-    void write_rt_buffer(int filenum);
+    void write_rt_buffer(int filenum, double &percent_ready);
 
 };
 

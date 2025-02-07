@@ -21,9 +21,10 @@ FrictionDataLogger::~FrictionDataLogger()
 	delete core_id;
 }
 
-void FrictionDataLogger::write_rt_buffer(int filenum) 
+void FrictionDataLogger::write_rt_buffer(int filenum, double &percent_ready)
 {
     RobotControlData *_rtLogger_save = new RobotControlData[CTRL_BUFF_SIZE];
+
 
     for (int i = 0; i < CTRL_BUFF_SIZE; i++)
     {
@@ -64,7 +65,7 @@ void FrictionDataLogger::write_rt_buffer(int filenum)
     tstruct = *localtime(&now);
     char rt_data_data[50];
     strftime(rt_data_data, 50, "%Y-%m-%d.%X", &tstruct);
-
+    int ready = 0;
     char saving_time[50];
     for (int j = 0; j < NUM_AXIS; j++)
     {
@@ -89,9 +90,12 @@ void FrictionDataLogger::write_rt_buffer(int filenum)
             // fprintf(file,"%i, ", _rtLogger_save[i].TargetTor[j]); 			// 13 : M
             // fprintf(file,"%i, ", _rtLogger_save[i].ActualVel[j]); 			// 14 : N
             fprintf(file,"\n");
+            ++ready;
+            percent_ready = (double)ready / CTRL_BUFF_SIZE * 100;
         }
         fclose(file);
         
+
     }
     delete[] _rtLogger_save;
     

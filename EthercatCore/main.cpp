@@ -605,9 +605,9 @@ void generate_sin_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, 
 	qdotdes = amplitude * omega * sin(omega * motion_time);
 	qdotdotdes = amplitude * omega * omega * cos(omega * motion_time);
 }
-// void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes,  bool gen){
-// 	_trajectory.gen_lspb_trajectory(gen, qdes, qdotdes, qdotdotdes);
-// }
+void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes,  bool gen){
+	_trajectory.gen_lspb_trajectory(gen, qdes, qdotdes, qdotdotdes);
+}
 
 double motion_time = 0;
 bool initflag = true;
@@ -648,10 +648,10 @@ int compute() {
 					qdes[i] = q_init + qdes[i] + qdes_lspb_init;
 				}else{
 					
-					const double q_last = 0.0061047 ;
+					const double q_last = 1.2038 ;
 					gen = false;
 					qdes[i] = q_last;
-					ctr_traj = _trajectory.max_traj_size+1000000;
+					ctr_traj = _trajectory.max_traj_size+1000;
 					
 					// _dataLogger.deactivate();
 				}	
@@ -681,8 +681,8 @@ int compute() {
 
 				// LowPassDerivative(qprev,q[i], qdot[i], fc, qdotdes[i]);
 				// generate trajectory 
-				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
-				generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
+				generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
+				// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
 				if (motion_number == 0)
 				{pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);}
 				else if (motion_number == 1)
@@ -751,19 +751,22 @@ int compute() {
 }
 int filenum1 = 1;
 int filenum2 = 1;
+double percent_ready = 0;
 void save_run(void *arg){
 	// initialize rt thread
 	rt_task_set_periodic(NULL, TM_NOW, cycle_ns);  // 10ms 1000000
+
 
 	while(run)
 	{
 		if (SAVE_MOVE_BUFFER)
 		{
-			_frictionDataLogger.write_rt_buffer(filenum2);
+			_frictionDataLogger.write_rt_buffer(filenum2, percent_ready);
 			SAVE_MOVE_BUFFER = false;
 			WRITE_MOVE_BUFFER = false;
 			printf("save_run\n");
 		}
+
 
 		rt_task_wait_period(NULL);  // wait for next cycle
 	}
@@ -821,6 +824,30 @@ void EthercatCore_run(void *arg)
 		ethercat2physical();
 		/// TO DO: Main computation routine...
 		compute();
+
+		if (percent_ready == 100)
+		{
+			// RT 데이터 파일 읽기
+			FILE *fp = fopen("performance_test/RT-data-7.csv", "r");
+			if (fp == NULL) {
+				printf("파일을 열 수 없습니다.\n");
+				return;
+			}
+			fclose(fp);
+			char line[1024];
+			fgets(line, sizeof(line), fp); // 헤더 행 건너뛰기
+			
+			while (fgets(line, sizeof(line), fp)) {
+				char *token = strtok(line, ",");
+				for (int i = 0; i < 4; i++) {
+					token = strtok(NULL, ","); // 처음 4개 열 건너뛰기
+				}
+				if (token != NULL) {
+					double fifth_column = atof(token);
+					// 여기서 fifth_column 값을 사용할 수 있습니다
+				}
+			}
+		}
 		// if(system_ready)
 		// {
     	// 		// Start of Selection
@@ -978,7 +1005,7 @@ void print_run(void *arg)
 				rt_printf("\e[32;1m\t error: %f,  \e[0m\n", 	 	error);
 				rt_printf("\e[32;1m\t error_dot: %f,  \e[0m\n", 	 	error_dot);
 				rt_printf("\e[32;1m\t friction_torque: %f,  \e[0m\n", 	 	friction_torque[i]);
-				
+				rt_printf("\e[32;1m\t percent_ready: %f,  \e[0m\n", 	 	percent_ready);
 				
 
 			}
@@ -1222,7 +1249,7 @@ int main(int argc, char **argv)
 		printf("Set Data Logger Path\n");
 		exit(1);
 	}
-	if (!_trajectory.read_trajectory("/home/user/release/data_csvFile/", filenum1)) {
+	if (!_trajectory.read_trajectory("/home/user/release/data_csvFile/")) {
 			printf("Set Data Logger Path\n");
 			exit(1);
 		}

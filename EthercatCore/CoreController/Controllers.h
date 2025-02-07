@@ -63,7 +63,7 @@ public:
   void encoder_to_joint(INT32 *enc, JointVec joint);
 
 public:
-  bool read_trajectory(const char *trajectory_path, int filenum);
+  bool read_trajectory(const char *trajectory_path);
   bool read_step_trajectory(char *trajectory_path);
   double gen_lspb_trajectory(bool isLspbOn);
   void gen_lspb_trajectory(bool isLspbOn, double & lspb_wave_pos, double & lspb_wave_vel, double & lspb_wave_acc);

@@ -11,7 +11,7 @@
 using namespace std;
 
 
-bool Controllers::read_trajectory(const char *trajectory_path, int filenum) 
+bool Controllers::read_trajectory(const char *trajectory_path) 
 {
   fstream file_traj_pos, file_traj_vel, file_traj_acc;
 

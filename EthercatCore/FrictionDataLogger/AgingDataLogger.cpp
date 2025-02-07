@@ -504,6 +504,7 @@ void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData)
 			// _loggingBuff_ctrl[ctrloggerIdx].qddot[i] = ctrlData.qddot[i];
 			// _loggingBuff_ctrl[ctrloggerIdx].ActualPOS[i] = ctrlData.ActualPOS[i];
 			_loggingBuff_ctrl[ctrloggerIdx].coretor[i] = ctrlData.coretor[i];
+			_loggingBuff_ctrl[ctrloggerIdx].friction_torque[i] = ctrlData.friction_torque[i];
 			// _loggingBuff_ctrl[ctrloggerIdx].FricTor[i] = ctrlData.FricTor[i];
 			// _loggingBuff_ctrl[ctrloggerIdx].sensortor[i] = ctrlData.sensortor[i];
 			// _loggingBuff_ctrl[ctrloggerIdx].ActualTor[i] = ctrlData.ActualTor[i];
