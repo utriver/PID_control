@@ -18,7 +18,8 @@ private:
         MAX_NUM_CORE = NUM_AXIS, DATA_LENGTH = 150,
     };
 public:
-    char *core_id;
+    char *core_id1;
+    char *core_id2;
 public:
     FrictionDataLogger ();
     ~FrictionDataLogger ();

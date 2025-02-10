@@ -11,14 +11,17 @@
 FrictionDataLogger::FrictionDataLogger()
 :AgingDataLogger()
 {
-    core_id = new char [500];
+    core_id1 = new char [500];
+    core_id2 = new char [500];
     logger_idx = this->logger_idx;
     logger_idx_max = this->logger_idx_max;
     log_idx = this->log_idx;
 }
+
 FrictionDataLogger::~FrictionDataLogger()
 {
-	delete core_id;
+	delete core_id1;
+	delete core_id2;
 }
 
 void FrictionDataLogger::write_rt_buffer(int filenum, double &percent_ready)
@@ -69,32 +72,44 @@ void FrictionDataLogger::write_rt_buffer(int filenum, double &percent_ready)
     char saving_time[50];
     for (int j = 0; j < NUM_AXIS; j++)
     {
-        FILE *file;
-        sprintf(core_id,"%sRT-data-%d.csv", AgingDataLogger::rt_data_logging_path, filenum);
-        file = fopen(core_id,"w");
-        for (int i = 0; i < CTRL_BUFF_SIZE; i++)
+        FILE *file1;
+        FILE *file2;
+        sprintf(core_id1,"%sRT-data-%d.csv", AgingDataLogger::rt_data_logging_path, 1);
+        sprintf(core_id2,"%sRT-data-%d.csv", AgingDataLogger::rt_data_logging_path, 2);
+        file1 = fopen(core_id1,"w");
+        file2 = fopen(core_id2,"w");
+        for (int i = 0; i < CTRL_BUFF_SIZE/2; i++)
+
+
         {
-            fprintf(file,"%f, ", _rtLogger_save[i].time); 			// 1 : A
-            fprintf(file,"%f, ", _rtLogger_save[i].q[j]); 			// 2 : B
-            fprintf(file,"%f, ", _rtLogger_save[i].qdes[j]); 		// 3 : C
-            fprintf(file,"%f, ", _rtLogger_save[i].qdot[j]); 		// 4 : D
-            fprintf(file,"%f, ", _rtLogger_save[i].qdotdes[j]); 	// 5 : E
-            // fprintf(file,"%f, ", _rtLogger_save[i].qddot[j]); 		// 6 : F
-            // fprintf(file,"%i, ", _rtLogger_save[i].ActualPOS[j]); 	// 7 : G
-            fprintf(file,"%f, ", _rtLogger_save[i].friction_torque[j]); 	// 8 : H
-            fprintf(file,"%f, ", _rtLogger_save[i].coretor[j]); 	// 8 : H
-            // fprintf(file,"%f, ", _rtLogger_save[i].sensortor[j]); 	// 9 : I
-            // fprintf(file,"%i, ", _rtLogger_save[i].ActualTor[j]); 	// 10 : J
-            // fprintf(file,"%f, ", _rtLogger_save[i].coretemperature[j]); 	// 11 : K
-            // fprintf(file,"%f, ", _rtLogger_save[i].sensortemperature[j]); 	// 12 : L
-            // fprintf(file,"%i, ", _rtLogger_save[i].TargetTor[j]); 			// 13 : M
-            // fprintf(file,"%i, ", _rtLogger_save[i].ActualVel[j]); 			// 14 : N
-            fprintf(file,"\n");
+            fprintf(file1,"%f, ", _rtLogger_save[i].time); 			// 1 : A
+            fprintf(file1,"%f, ", _rtLogger_save[i].q[j]); 			// 2 : B
+            fprintf(file1,"%f, ", _rtLogger_save[i].qdes[j]); 		// 3 : C
+            fprintf(file1,"%f, ", _rtLogger_save[i].qdot[j]); 		// 4 : D
+            fprintf(file1,"%f, ", _rtLogger_save[i].qdotdes[j]); 	// 5 : E
+            fprintf(file1,"%f, ", _rtLogger_save[i].friction_torque[j]); 	// 8 : H
+            fprintf(file1,"%f, ", _rtLogger_save[i].coretor[j]); 	// 8 : H
+            fprintf(file1,"\n");
             ++ready;
-            percent_ready = (double)ready / CTRL_BUFF_SIZE * 100;
+
+            percent_ready = (double)ready / (CTRL_BUFF_SIZE*NUM_AXIS) * 100;
         }
-        fclose(file);
-        
+        for (int i = CTRL_BUFF_SIZE/2; i < CTRL_BUFF_SIZE; i++)
+        {
+            fprintf(file2,"%f, ", _rtLogger_save[i].time); 			// 1 : A
+            fprintf(file2,"%f, ", _rtLogger_save[i].q[j]); 			// 2 : B
+            fprintf(file2,"%f, ", _rtLogger_save[i].qdes[j]); 		// 3 : C
+            fprintf(file2,"%f, ", _rtLogger_save[i].qdot[j]); 		// 4 : D
+            fprintf(file2,"%f, ", _rtLogger_save[i].qdotdes[j]); 	// 5 : E
+            fprintf(file2,"%f, ", _rtLogger_save[i].friction_torque[j]); 	// 8 : H
+            fprintf(file2,"%f, ", _rtLogger_save[i].coretor[j]); 	// 8 : H
+            fprintf(file2,"\n");
+            ++ready;
+            percent_ready = (double)ready / (CTRL_BUFF_SIZE*NUM_AXIS) * 100;
+        }
+        fclose(file1);
+        fclose(file2);
+
 
     }
     delete[] _rtLogger_save;
