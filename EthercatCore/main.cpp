@@ -626,7 +626,7 @@ double last_increase_time = 0;
 double MAX_AMPLITUDE = 12.0;  // 理쒕� amplitude 媛� �꽕�젙
 double MIN_AMPLITUDE = 5.0;
 double motion_number;
-int dynamic_id=0;
+int dynamic_id=1;
 int compute() {
     if (demo_mode == DEMO_MODE_TORQUE) {
 		// if (dynamic_id == 0)
@@ -1205,9 +1205,30 @@ void static_calculation(void *arg)
             if (result == 0) {
                 printf("Static calculation completed successfully\n");
 				dynamic_id = 1;
-				percent_ready = 0;
             } else {
                 printf("Error executing static calculation script\n");
+            }
+            need_processing = false;
+        }
+    }
+	
+}
+void dynamic_calculation(void *arg)
+{
+
+	while(run)
+    {
+        if (need_processing) {
+
+            // Python 스크립트 실행
+            const char* python_cmd = "python3 /home/user/release/friction_Id/gms_calculate_1.py";
+            int result = system(python_cmd);
+            
+            if (result == 0) {
+                printf("Dynamic calculation completed successfully\n");
+				dynamic_id = 0;
+            } else {
+                printf("Error executing dynamic calculation script\n");
             }
             need_processing = false;
         }
@@ -1223,16 +1244,16 @@ void save_run(void *arg)
     {
         if (SAVE_MOVE_BUFFER)
         {
-            if (dynamic_id == 0) {
+            // if (dynamic_id == 0) {
                 _frictionDataLogger.write_rt_buffer1(filenum2, percent_ready);
                 SAVE_MOVE_BUFFER = false;
                 WRITE_MOVE_BUFFER = false;
-                need_processing = true;  // 비실시간 작업 트리거
-            } else if (dynamic_id == 1) {
-                _frictionDataLogger.write_rt_buffer2(filenum2, percent_ready);
-                SAVE_MOVE_BUFFER = false;
-                WRITE_MOVE_BUFFER = false;
-            }
+                // need_processing = true;  // 비실시간 작업 트리거
+            // } else if (dynamic_id == 1) {
+            //     _frictionDataLogger.write_rt_buffer1(filenum2, percent_ready);
+            //     SAVE_MOVE_BUFFER = false;
+            //     WRITE_MOVE_BUFFER = false;
+            // }
         }
         rt_task_wait_period(NULL);
     }
@@ -1315,7 +1336,10 @@ void EthercatCore_run(void *arg)
 		if(system_ready)
 		{
 			if(WRITE_MOVE_BUFFER){
-				_frictionDataLogger.update_rt_buffer(ctrlData,dynamic_id);
+				_frictionDataLogger.update_rt_buffer(ctrlData);
+				for (int i = 0; i < 100; i++){
+					printf("data update\n");
+				}
 				
 //				printf("******* START writing to the buffer *****\n");
 
@@ -1719,7 +1743,7 @@ int main(int argc, char **argv)
 	rt_task_start(&EthercatCore_task, &EthercatCore_run, NULL);
 
 	// save: create and start
-	rt_task_create(&save_task, "saving", 0, 90, T_JOINABLE); //int rt_task_create(RT_TASK *task, const char *name, int stksize, 슦꽑닚쐞, int mode);
+	rt_task_create(&save_task, "saving", 0, 90, 0); //int rt_task_create(RT_TASK *task, const char *name, int stksize, 슦꽑닚쐞, int mode);
 	rt_task_start(&save_task, &save_run, NULL);
 
 	 // 비RT 태스크 생성

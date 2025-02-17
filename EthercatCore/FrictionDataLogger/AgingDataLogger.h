@@ -19,7 +19,7 @@
 #define AVG_BUFF_SIZE   6*60*24*4     		// 4 days (every 10 sec)
 #define RAW_BUFF_SIZE	4000*60          //
 #define MOVE_BUFF_SIZE 	4000*1           // sec
-#define CTRL_BUFF_SIZE1  450*4000			//4000*5
+#define CTRL_BUFF_SIZE1  10*4000			//4000*5
 #define CTRL_BUFF_SIZE2  40*4000			//4000*5
 #define BUFF_HEAD_CUT 	0.1         		// 1.5sec after rest
 #define BUFF_TAIL_CUT 	0.13   		      	// 0.5sec before rest
@@ -39,8 +39,8 @@ public:
 
 public:
 	void calc_avg_value(bool isReset);
-	// void update_rt_buffer(RobotControlData ctrlData, size_t bufferSize);
-	void update_rt_buffer(RobotControlData ctrlData, int dynamic_id);
+	void update_rt_buffer(RobotControlData ctrlData, size_t bufferSize);
+	void update_rt_buffer(RobotControlData ctrlData);
 	void update_avg_buffer(RobotControlData ctrlData, int traj_phase);
 	void write_rt_buffer();
 	void write_avg_buffer();

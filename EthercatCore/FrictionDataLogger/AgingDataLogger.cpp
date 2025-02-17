@@ -490,39 +490,33 @@ void AgingDataLogger::update_avg_buffer(RobotControlData ctrlData, int traj_phas
 	}
 }
 
-// void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData, size_t bufferSize)
-// {
-//     if (ctrloggerIdx < bufferSize)
-//     {
-//         _loggingBuff_ctrl[ctrloggerIdx].time = ctrlData.time;
-//         for (int i = 0; i < CORE_NUM_AXIS; i++)
-//         {
-//             _loggingBuff_ctrl[ctrloggerIdx].q[i] = ctrlData.q[i];
-//             _loggingBuff_ctrl[ctrloggerIdx].qdes[i] = ctrlData.qdes[i];
-//             _loggingBuff_ctrl[ctrloggerIdx].qdot[i] = ctrlData.qdot[i];
-//             _loggingBuff_ctrl[ctrloggerIdx].qdotdes[i] = ctrlData.qdotdes[i];
-//             _loggingBuff_ctrl[ctrloggerIdx].coretor[i] = ctrlData.coretor[i];
-//             _loggingBuff_ctrl[ctrloggerIdx].friction_torque[i] = ctrlData.friction_torque[i];
-//         }
-//         ctrloggerIdx++;
-//     }
-//     else
-//     {
-//         isRTbufferFilled = true;
-//         ctrloggerIdx = 0;
-//     }
-// }
-
-void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData, int dynamic_id)
+void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData, size_t bufferSize)
 {
-    if (dynamic_id == 0)
-	{
-		update_rt_buffer(ctrlData, CTRL_BUFF_SIZE1);
-	}
-	else if (dynamic_id == 1)
-	{
-		update_rt_buffer(ctrlData, CTRL_BUFF_SIZE2);
-	}
+    if (ctrloggerIdx < bufferSize)
+    {
+        _loggingBuff_ctrl[ctrloggerIdx].time = ctrlData.time;
+        for (int i = 0; i < CORE_NUM_AXIS; i++)
+        {
+            _loggingBuff_ctrl[ctrloggerIdx].q[i] = ctrlData.q[i];
+            _loggingBuff_ctrl[ctrloggerIdx].qdes[i] = ctrlData.qdes[i];
+            _loggingBuff_ctrl[ctrloggerIdx].qdot[i] = ctrlData.qdot[i];
+            _loggingBuff_ctrl[ctrloggerIdx].qdotdes[i] = ctrlData.qdotdes[i];
+            _loggingBuff_ctrl[ctrloggerIdx].coretor[i] = ctrlData.coretor[i];
+            _loggingBuff_ctrl[ctrloggerIdx].friction_torque[i] = ctrlData.friction_torque[i];
+        }
+        ctrloggerIdx++;
+    }
+    else
+    {
+        isRTbufferFilled = true;
+        ctrloggerIdx = 0;
+    }
+}
+
+void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData)
+{
+
+	update_rt_buffer(ctrlData, CTRL_BUFF_SIZE1);
 }
 
 
