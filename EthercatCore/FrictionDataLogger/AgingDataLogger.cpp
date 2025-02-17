@@ -286,9 +286,9 @@ void AgingDataLogger::write_avg_buffer()
 
 void AgingDataLogger::write_rt_buffer()
 {
-	RobotControlData *_rtLogger_save = new RobotControlData[CTRL_BUFF_SIZE];
+	RobotControlData *_rtLogger_save = new RobotControlData[CTRL_BUFF_SIZE1];
 
-	for (int i=0; i<CTRL_BUFF_SIZE; i++)
+	for (int i=0; i<CTRL_BUFF_SIZE1; i++)
 	{
         _rtLogger_save[i].time = _loggingBuff_ctrl[i].time;
         for (int j = 0; j < NUM_AXIS; j++)
@@ -365,7 +365,7 @@ void AgingDataLogger::write_rt_buffer()
 		exit(1);
 	}
 
-	for (int i=0; i<CTRL_BUFF_SIZE; i++)
+	for (int i=0; i<CTRL_BUFF_SIZE1; i++)
 	{
 		fprintf(file,"%f, ", _rtLogger_save[i].time);
 		for (int j=0;j<CORE_NUM_AXIS;j++)
@@ -490,37 +490,42 @@ void AgingDataLogger::update_avg_buffer(RobotControlData ctrlData, int traj_phas
 	}
 }
 
-void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData)
+// void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData, size_t bufferSize)
+// {
+//     if (ctrloggerIdx < bufferSize)
+//     {
+//         _loggingBuff_ctrl[ctrloggerIdx].time = ctrlData.time;
+//         for (int i = 0; i < CORE_NUM_AXIS; i++)
+//         {
+//             _loggingBuff_ctrl[ctrloggerIdx].q[i] = ctrlData.q[i];
+//             _loggingBuff_ctrl[ctrloggerIdx].qdes[i] = ctrlData.qdes[i];
+//             _loggingBuff_ctrl[ctrloggerIdx].qdot[i] = ctrlData.qdot[i];
+//             _loggingBuff_ctrl[ctrloggerIdx].qdotdes[i] = ctrlData.qdotdes[i];
+//             _loggingBuff_ctrl[ctrloggerIdx].coretor[i] = ctrlData.coretor[i];
+//             _loggingBuff_ctrl[ctrloggerIdx].friction_torque[i] = ctrlData.friction_torque[i];
+//         }
+//         ctrloggerIdx++;
+//     }
+//     else
+//     {
+//         isRTbufferFilled = true;
+//         ctrloggerIdx = 0;
+//     }
+// }
+
+void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData, int dynamic_id)
 {
-	if (ctrloggerIdx < CTRL_BUFF_SIZE)
+    if (dynamic_id == 0)
 	{
-		_loggingBuff_ctrl[ctrloggerIdx].time = ctrlData.time;
-		for (int i=0; i<CORE_NUM_AXIS; i++)
-		{
-			_loggingBuff_ctrl[ctrloggerIdx].q[i] = ctrlData.q[i];
-			_loggingBuff_ctrl[ctrloggerIdx].qdes[i] = ctrlData.qdes[i];
-			_loggingBuff_ctrl[ctrloggerIdx].qdot[i] = ctrlData.qdot[i];
-			_loggingBuff_ctrl[ctrloggerIdx].qdotdes[i] = ctrlData.qdotdes[i];
-			// _loggingBuff_ctrl[ctrloggerIdx].qddot[i] = ctrlData.qddot[i];
-			// _loggingBuff_ctrl[ctrloggerIdx].ActualPOS[i] = ctrlData.ActualPOS[i];
-			_loggingBuff_ctrl[ctrloggerIdx].coretor[i] = ctrlData.coretor[i];
-			_loggingBuff_ctrl[ctrloggerIdx].friction_torque[i] = ctrlData.friction_torque[i];
-			// _loggingBuff_ctrl[ctrloggerIdx].FricTor[i] = ctrlData.FricTor[i];
-			// _loggingBuff_ctrl[ctrloggerIdx].sensortor[i] = ctrlData.sensortor[i];
-			// _loggingBuff_ctrl[ctrloggerIdx].ActualTor[i] = ctrlData.ActualTor[i];
-			// _loggingBuff_ctrl[ctrloggerIdx].ActualVel[i] = ctrlData.ActualVel[i];
-			// _loggingBuff_ctrl[ctrloggerIdx].TargetTor[i] = ctrlData.TargetTor[i];
-			// _loggingBuff_ctrl[ctrloggerIdx].coretemperature[i] = ctrlData.coretemperature[i];
-			// _loggingBuff_ctrl[ctrloggerIdx].sensortemperature[i] = ctrlData.sensortemperature[i];
-		}
-		ctrloggerIdx++;
+		update_rt_buffer(ctrlData, CTRL_BUFF_SIZE1);
 	}
-	else
+	else if (dynamic_id == 1)
 	{
-		isRTbufferFilled = true;
-		ctrloggerIdx = 0;
+		update_rt_buffer(ctrlData, CTRL_BUFF_SIZE2);
 	}
 }
+
+
 
 bool AgingDataLogger::set_logging_path(char *rt_logging_path, char *avg_logging_path)
 {
