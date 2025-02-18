@@ -638,8 +638,6 @@ int compute() {
 						ZeroPos[i] = ActualPos[i];
 						if(ActualPos[0] != 0) initflag = false;					
 					}
-///////////////////////////////////static mode///////////////////////////////////
-					if (dynamic_id ==0 ){
 							flag_datalogging = true;
 							if(flag_datalogging)
 						{
@@ -677,27 +675,7 @@ int compute() {
 							generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
 							pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
 							control_signal = computed_torque[i];
-					}
-///////////////////////////////////dynamic mode///////////////////////////////////
-					else if (dynamic_id==1){
-						WRITE_MOVE_BUFFER = true;
-						update_flag = 1;
-						static double prev_cycle = 0;
-						if (amplitude < MAX_AMPLITUDE){
-							if (gt >= (2.0/f) && gt - prev_cycle >= (2.0/f)) {
-								if (amplitude < MAX_AMPLITUDE) {
-									amplitude += 2.0;
-									prev_cycle = gt;
-									printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
-								}
-							}
-							control_signal = amplitude*sin(PI2*f*fmod(gt, 2.0/f));
-							
-						}
-						else if (amplitude >= MAX_AMPLITUDE){
-							control_signal = 0;
-						}
-					}
+					
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 					// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
@@ -1003,52 +981,51 @@ int filenum1 = 1;
 int filenum2 = 1;
 double percent_ready = 0;
 bool need_processing = false;
-void static_calculation(void *arg)
-{
+// void static_calculation(void *arg)
+// {
 
-	while(run)
-    {
-        if (need_processing) {
-            extract_data(percent_extract);
-            printf("Data extraction completed: %.2f%%\n", percent_extract);
+// 	while(run)
+//     {
+//         if (need_processing) {
+//             printf("Data extraction completed: %.2f%%\n", percent_extract);
 
-            // Python 스크립트 실행
-            const char* python_cmd = "python3 /home/user/release/friction_Id/static_calculate.py";
-            int result = system(python_cmd);
+//             // Python 스크립트 실행
+//             const char* python_cmd = "python3 /home/user/release/friction_Id/static_calculate.py";
+//             int result = system(python_cmd);
             
-            if (result == 0) {
-                printf("Static calculation completed successfully\n");
-				dynamic_id = 1;
-            } else {
-                printf("Error executing static calculation script\n");
-            }
-            need_processing = false;
-        }
-    }
+//             if (result == 0) {
+//                 printf("Static calculation completed successfully\n");
+// 				dynamic_id = 1;
+//             } else {
+//                 printf("Error executing static calculation script\n");
+//             }
+//             need_processing = false;
+//         }
+//     }
 	
-}
-void dynamic_calculation(void *arg)
-{
+// }
+// void dynamic_calculation(void *arg)
+// {
 
-	while(run)
-    {
-        if (need_processing) {
+// 	while(run)
+//     {
+//         if (need_processing) {
 
-            // Python 스크립트 실행
-            const char* python_cmd = "python3 /home/user/release/friction_Id/gms_calculate_1.py";
-            int result = system(python_cmd);
+//             // Python 스크립트 실행
+//             const char* python_cmd = "python3 /home/user/release/friction_Id/gms_calculate_1.py";
+//             int result = system(python_cmd);
             
-            if (result == 0) {
-                printf("Dynamic calculation completed successfully\n");
-				dynamic_id = 0;
-            } else {
-                printf("Error executing dynamic calculation script\n");
-            }
-            need_processing = false;
-        }
-    }
+//             if (result == 0) {
+//                 printf("Dynamic calculation completed successfully\n");
+// 				dynamic_id = 0;
+//             } else {
+//                 printf("Error executing dynamic calculation script\n");
+//             }
+//             need_processing = false;
+//         }
+//     }
 	
-}
+// }
 // RT 태스크는 최소한의 작업만 수행
 int buffer_size;
 bool read_flag = false;
@@ -1058,21 +1035,15 @@ void save_run(void *arg)
 
     while(run)
     {
-        if (SAVE_MOVE_BUFFER && !read_flag)
+        if (SAVE_MOVE_BUFFER)
         {
-            if (dynamic_id == 0) {
-                _frictionDataLogger.write_rt_buffer0(filenum2, percent_ready);
+           	    _frictionDataLogger.write_rt_buffer(filenum2, percent_ready);
                 SAVE_MOVE_BUFFER = false;
                 WRITE_MOVE_BUFFER = false;
 				printf("save_run\n");
-                need_processing = true;  // 비실시간 작업 트리거
-				read_flag = true;
-            } else if (dynamic_id == 1) {
-                _frictionDataLogger.write_rt_buffer1(filenum2, percent_ready);
-                SAVE_MOVE_BUFFER = false;
-                WRITE_MOVE_BUFFER = false;
-				read_flag = true;
-            }
+				extract_data(percent_extract);
+
+            
         }
         rt_task_wait_period(NULL);
     }
@@ -1085,7 +1056,6 @@ void EthercatCore_run(void *arg)
 	unsigned int runcount=0;
 	RTIME now, previous;
 	
-	gt = 0;
 	// Synchronize EtherCAT Master (for Distributed Clock Mode)
 	_systemInterface_EtherCAT_EthercatCore.syncEcatMaster();
 	
@@ -1156,21 +1126,16 @@ void EthercatCore_run(void *arg)
 		}
 		if(system_ready)
 		{
-			if(WRITE_MOVE_BUFFER && update_flag){
-				if (dynamic_id == 0){
-					_frictionDataLogger.update_rt_buffer0(ctrlData);				
-				}
-				else{
-					_frictionDataLogger.update_rt_buffer1(ctrlData);
-				}
-				
+			if(WRITE_MOVE_BUFFER){
+					_frictionDataLogger.update_rt_buffer(ctrlData);				
+
+			
 //				printf("******* START writing to the buffer *****\n");
 
 				if (_frictionDataLogger.isRTbufferFilled)
 				{
 //					printf("*******Buffer is full. Start saving data *****\n");
 					WRITE_MOVE_BUFFER = false;
-					update_flag = 0;
 					SAVE_MOVE_BUFFER = true;
 					_frictionDataLogger.isRTbufferFilled = false;
 				}
@@ -1200,13 +1165,9 @@ void EthercatCore_run(void *arg)
 		{
 			
 			// system_ready=1;	//all drives have been done
-			if (!system_ready) {
-                gt = 0.0;
+
                 system_ready = 1;
-            }
-			else {
-				gt += period;
-			}			
+				gt += period;	
 
 			// gt+= period;
 			
@@ -1577,11 +1538,6 @@ int main(int argc, char **argv)
 	// save: create and start
 	rt_task_create(&save_task, "saving", 0, 90, 0); //int rt_task_create(RT_TASK *task, const char *name, int stksize, 슦꽑닚쐞, int mode);
 	rt_task_start(&save_task, &save_run, NULL);
-
-	 // 비RT 태스크 생성
-    pthread_t non_rt_thread;
-    pthread_create(&non_rt_thread, NULL, (void *(*)(void *))static_calculation, NULL);
-
 	// printing: create and start
 	rt_task_create(&print_task, "printing", 0, 80, 0);
 	rt_task_start(&print_task, &print_run, NULL);

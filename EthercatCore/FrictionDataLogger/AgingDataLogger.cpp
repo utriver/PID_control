@@ -490,7 +490,7 @@ void AgingDataLogger::update_avg_buffer(RobotControlData ctrlData, int traj_phas
 	}
 }
 
-void AgingDataLogger::update_rt_buffer0(RobotControlData ctrlData)
+void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData)
 {
 	
 	if (ctrloggerIdx < CTRL_BUFF_SIZE)
@@ -514,29 +514,29 @@ void AgingDataLogger::update_rt_buffer0(RobotControlData ctrlData)
     }
 }
 
-void AgingDataLogger::update_rt_buffer1(RobotControlData ctrlData)
-{
+// void AgingDataLogger::update_rt_buffer1(RobotControlData ctrlData)
+// {
 	
-	if (ctrloggerIdx < CTRL_BUFF_SIZE1)
-    {
-        _loggingBuff_ctrl1[ctrloggerIdx].time = ctrlData.time;
-        for (int i = 0; i < CORE_NUM_AXIS; i++)
-        {
-            _loggingBuff_ctrl1[ctrloggerIdx].q[i] = ctrlData.q[i];
-            _loggingBuff_ctrl1[ctrloggerIdx].qdes[i] = ctrlData.qdes[i];
-            _loggingBuff_ctrl1[ctrloggerIdx].qdot[i] = ctrlData.qdot[i];
-            _loggingBuff_ctrl1[ctrloggerIdx].qdotdes[i] = ctrlData.qdotdes[i];
-            _loggingBuff_ctrl1[ctrloggerIdx].coretor[i] = ctrlData.coretor[i];
-            _loggingBuff_ctrl1[ctrloggerIdx].friction_torque[i] = ctrlData.friction_torque[i];
-        }
-        ctrloggerIdx++;
-    }
-    else
-    {
-        isRTbufferFilled = true;
-        ctrloggerIdx = 0;
-    }
-}
+// 	if (ctrloggerIdx < CTRL_BUFF_SIZE1)
+//     {
+//         _loggingBuff_ctrl1[ctrloggerIdx].time = ctrlData.time;
+//         for (int i = 0; i < CORE_NUM_AXIS; i++)
+//         {
+//             _loggingBuff_ctrl1[ctrloggerIdx].q[i] = ctrlData.q[i];
+//             _loggingBuff_ctrl1[ctrloggerIdx].qdes[i] = ctrlData.qdes[i];
+//             _loggingBuff_ctrl1[ctrloggerIdx].qdot[i] = ctrlData.qdot[i];
+//             _loggingBuff_ctrl1[ctrloggerIdx].qdotdes[i] = ctrlData.qdotdes[i];
+//             _loggingBuff_ctrl1[ctrloggerIdx].coretor[i] = ctrlData.coretor[i];
+//             _loggingBuff_ctrl1[ctrloggerIdx].friction_torque[i] = ctrlData.friction_torque[i];
+//         }
+//         ctrloggerIdx++;
+//     }
+//     else
+//     {
+//         isRTbufferFilled = true;
+//         ctrloggerIdx = 0;
+//     }
+// }
 
 
 

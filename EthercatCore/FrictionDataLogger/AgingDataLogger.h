@@ -20,7 +20,7 @@
 #define RAW_BUFF_SIZE	4000*60          //
 #define MOVE_BUFF_SIZE 	4000*1           // sec
 #define CTRL_BUFF_SIZE  450*4000			//4000*5
-#define CTRL_BUFF_SIZE1 40*4000			//4000*5
+// #define CTRL_BUFF_SIZE1 40*4000			//4000*5
 #define BUFF_HEAD_CUT 	0.1         		// 1.5sec after rest
 #define BUFF_TAIL_CUT 	0.13   		      	// 0.5sec before rest
 #define SKIP_IDX  4000*BUFF_HEAD_CUT
@@ -39,8 +39,7 @@ public:
 
 public:
 	void calc_avg_value(bool isReset);
-	void update_rt_buffer0(RobotControlData ctrlData);
-	void update_rt_buffer1(RobotControlData ctrlData);
+	void update_rt_buffer(RobotControlData ctrlData);
 	void update_avg_buffer(RobotControlData ctrlData, int traj_phase);
 	void write_rt_buffer();
 	void write_avg_buffer();
@@ -62,7 +61,7 @@ public:
 	RobotControlData _loggingBuff_CW[MOVE_BUFF_SIZE];
 	RobotControlData _loggingBuff_CCW[MOVE_BUFF_SIZE];
 	RobotControlData _loggingBuff_ctrl[CTRL_BUFF_SIZE];
-	RobotControlData _loggingBuff_ctrl1[CTRL_BUFF_SIZE1];
+	// RobotControlData _loggingBuff_ctrl1[CTRL_BUFF_SIZE1];
 public:
 	bool isAvgCW;
 	bool isCalcAvg;
