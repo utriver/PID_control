@@ -690,11 +690,11 @@ int compute() {
 				// LowPassDerivative(qprev,q[i], qdot[i], fc, qdotdes[i]);
 				// generate trajectory 
 				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
-				////////////////static test///////////////////////////////////////
+//////////////////////////////////static test///////////////////////////////////////
 				// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
 				// pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
 				// control_signal = computed_torque[i];
-
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 				// control_signal =(fc-amplitude)*sin(PI2*f*gt);
 				// control_signal =amplitude;
 
@@ -803,8 +803,8 @@ void extract_data(double &percent_extract)
 	const char* base_path = "/home/user/release/";  // �떎�젣 �꽕移� 寃쎈줈濡� �닔�젙
 	char filepath1[256], filepath2[256], filepath3[256];
 	
-	snprintf(filepath1, sizeof(filepath1), "%sperformance_test/RT_test/RT-data-1.csv", base_path);
-	snprintf(filepath2, sizeof(filepath2), "%sperformance_test/RT_test/RT-data-2.csv", base_path);
+	snprintf(filepath1, sizeof(filepath1), "%sfriction_data/RT_test/RT-data-1.csv", base_path);
+	snprintf(filepath2, sizeof(filepath2), "%sfriction_data/RT_test/RT-data-2.csv", base_path);
 	
 	FILE *fp1 = fopen(filepath1, "r");
 	FILE *fp2 = fopen(filepath2, "r");
@@ -964,8 +964,8 @@ void extract_data(double &percent_extract)
 		}
 	}
 	
-	//�뙆�씪 ���옣 �떆 �쑀�슚�꽦 寃��궗 異붽�
-	FILE *fp3 = fopen("performance_test/RT_test/RT-data-3.csv", "w");
+	//뙆씪 옣 떆 쑀슚꽦 寃궗 異붽
+	FILE *fp3 = fopen("friction_data/RT_test/RT-data-3.csv", "w");
 	if (fp3 == NULL) {
 		printf("Error: Cannot open output file\n");
 		return;
@@ -1048,7 +1048,7 @@ void save_run(void *arg)
                 SAVE_MOVE_BUFFER = false;
                 WRITE_MOVE_BUFFER = false;
 				printf("save_run\n");
-				// extract_data(percent_extract);
+				extract_data(percent_extract);
 
             
         }
@@ -1500,8 +1500,8 @@ int main(int argc, char **argv)
 	// For trajectory interpolation
 	initAxes();
 	//confirm the trajectory file is loaded
-	char traj2[] = "/home/user/release/performance_test/RT_test/";
-	char traj3[] = "/home/user/release/performance_test/Avg_test/";
+	char traj2[] = "/home/user/release/friction_data/RT_test/";
+	char traj3[] = "/home/user/release/friction_data/Avg_test/";
 	if(!_frictionDataLogger.set_logging_path(traj2,traj3))
 
 	{
