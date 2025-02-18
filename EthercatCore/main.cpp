@@ -636,46 +636,24 @@ int compute() {
 					_time += period;
 					if(initflag){
 						ZeroPos[i] = ActualPos[i];
-						if(ActualPos[0] != 0) initflag = false;					
-					}
-							flag_datalogging = true;
-							if(flag_datalogging)
-						{
-								// Start of Selection
-							q_init = q[i];   // 泥 踰덉㎏ 떎젣 쐞移
-							WRITE_MOVE_BUFFER = true;
-							update_flag = 1;
-
-							// _dataLogger.activate();
-							flag_datalogging = false;
-						}
-					
-						if(isInitLspb == 1)
-						{
-							qdes_lspb_init = -qdes[i];   //first desired position
-							isInitLspb = 0;
-						}
-
-						if(ctr_traj < _trajectory.max_traj_size-1)
-						{
-								// Start of Selection
-							qdes[i] = q_init + qdes[i] + qdes_lspb_init;
-						}else{
+						WRITE_MOVE_BUFFER = true;
+						update_flag = 1;
+						static double prev_cycle = 0;
+						if (amplitude < MAX_AMPLITUDE){
+							if (gt >= (2.0/f) && gt - prev_cycle >= (2.0/f)) {
+								if (amplitude < MAX_AMPLITUDE) {
+									amplitude += 2.0;
+									prev_cycle = gt;
+									printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
+								}
+							}
+							control_signal = amplitude*sin(PI2*f*fmod(gt, 2.0/f));
 							
-							const double q_last = 2.3964 ; //last position
-							gen = false;
-							qdes[i] = q_last;
-							ctr_traj = _trajectory.max_traj_size+1000;
-							// _dataLogger.deactivate();
-						}	
-						
-							ctr_traj++; //=motion_time
-
-							qdes_prev = qdes[i];
-							generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
-							pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
-							control_signal = computed_torque[i];
-					
+						}
+						else if (amplitude >= MAX_AMPLITUDE){
+							control_signal = 0;
+						}
+					}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 					// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
@@ -1041,7 +1019,7 @@ void save_run(void *arg)
                 SAVE_MOVE_BUFFER = false;
                 WRITE_MOVE_BUFFER = false;
 				printf("save_run\n");
-				extract_data(percent_extract);
+				// extract_data(percent_extract);
 
             
         }
