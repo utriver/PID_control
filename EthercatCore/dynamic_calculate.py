@@ -10,13 +10,15 @@ import json
 # 데이터 불러오기 및 전처리
 # -------------------------------
 # Load dynamic data
-preslide_data = pd.read_csv('/home/user/release/performance_test/RT-data-4.csv')
+# preslide_data = pd.read_csv('/home/user/release/performance_test/RT-data-4.csv')
+preslide_data = pd.read_csv('C:/Users/ujin3/Desktop/nrmk/CORE_automation/dynamic_data/dynamic2.csv', skiprows=1)
 position = preslide_data.iloc[:, 1].values
 torque_measured = preslide_data.iloc[:, 6].values
 time = preslide_data.iloc[:, 0].values
 
 # Load slide (정적) data
-slide_data = pd.read_csv('/home/user/release/performance_test/RT-data-3.csv')
+# slide_data = pd.read_csv('/home/user/release/performance_test/RT-data-3.csv')
+slide_data = pd.read_csv('C:/Users/ujin3/Desktop/nrmk/CORE_automation/statics_data/stribeck2.csv')
 slide_velocity  = slide_data.iloc[:, 0].values
 slide_torque_measured = slide_data.iloc[:, 1].values
 
@@ -64,7 +66,7 @@ s2n = 1.629037
 T_dyn = len(velocity)
 s_v_array = np.zeros(T_dyn)
 sign_v = np.sign(velocity)
-cond2_array = (np.abs(velocity) < 0.005)  # Boolean array
+cond2_array = (np.abs(velocity) < 0.004)  # Boolean array
 
 for t in range(T_dyn):
     if velocity[t] > 0:
@@ -126,7 +128,7 @@ def residual_dyn(p, velocity, s_v_array, sign_v, cond2_array, dt, N, torque_meas
 # 파라미터 초기 추정치 설정
 # p = [k (N개), beta (N개), C (1개)]
 p0_dyn = np.concatenate([
-    0.0086 * np.ones(N)*1e7,         # 초기 k
+    0.0065 * np.ones(N)*1e7,         # 초기 k
     -np.log(N) * np.ones(N),  # beta 초기값 -> alpha = exp(-log(N))/sum(exp(-log(N))) = 1/N
     np.array([300.0])         # C 초기값
 ])
@@ -159,7 +161,7 @@ print("최적의 C:", C_opt)
 T_slide = len(slide_velocity)
 s_v_array_slide = np.zeros(T_slide)
 sign_v_slide = np.sign(slide_velocity)
-cond2_array_slide = (np.abs(slide_velocity) < 0.02)
+cond2_array_slide = (np.abs(slide_velocity) < 0.004)
 
 for t in range(T_slide):
     if slide_velocity[t] > 0:
@@ -252,22 +254,20 @@ plt.ylabel('Torque (Nm)')
 plt.legend()
 plt.grid(True)
 plt.show()
+
 # 최적화된 파라미터들을 JSON 파일로 저장
+with open('friction_parameters.json', 'r') as f:
+    existing_params = json.load(f)
 
-optimization_results = {
-    "dynamic_parameters": {
-        "k": float(k_opt),
-        "alpha": float(alpha_opt), 
-        "C": float(C_opt_slide)
-    }
-
-}
-    
-
+# 기존 파라미터에 새로운 GMS 파라미터 추가
+existing_params["FricParameter"][0].update({
+    "k": k_opt.tolist(),  # numpy 배열을 리스트로 변환
+    "alpha": alpha_opt.tolist(),  # numpy 배열을 리스트로 변환
+    "C": float(C_opt_slide)
+})
 
 # JSON 파일로 저장
-# with open('/home/user/release/data_csvFile/gms_parameters.json', 'w') as f:
 with open('friction_parameters.json', 'w') as f:
-    json.dump(optimization_results, f, indent=4)
+    json.dump(existing_params, f, indent=4)
 
-print("최적화된 파라미터들이 JSON 파일로 저장되었습니다.")
+print("최적화된 파라미터들이 JSON 파일에 추가되었습니다.")

@@ -19,7 +19,7 @@ private:
     };
 public:
     char *core_id1;
-    // char *core_id2;
+    char *core_id2;
 public:
     FrictionDataLogger ();
     ~FrictionDataLogger ();

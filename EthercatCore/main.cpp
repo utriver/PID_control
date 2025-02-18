@@ -656,7 +656,7 @@ int compute() {
 					qdes[i] = q_init + qdes[i] + qdes_lspb_init;
 				}else{
 					
-					const double q_last = 0.0061047 ;
+					const double q_last = 2.3964 ;
 					gen = false;
 					qdes[i] = q_last;
 					ctr_traj = _trajectory.max_traj_size+1000000;
@@ -691,9 +691,9 @@ int compute() {
 				// generate trajectory 
 				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
 //////////////////////////////////static test///////////////////////////////////////
-				// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
-				// pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
-				// control_signal = computed_torque[i];
+ 				generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
+				pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
+				control_signal = computed_torque[i];
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 				// control_signal =(fc-amplitude)*sin(PI2*f*gt);
 				// control_signal =amplitude;
@@ -713,23 +713,23 @@ int compute() {
 
 				// }
 				 // 기본 사인파 신호 생성
- ////////////////////////////////////////////////////////////////////////////////////////////////////////               
-                control_signal = amplitude * sin(PI2 * f * gt);  // 기본 사인파 신호 생성
+ //////////////////////////////////////////dynamic test/////////////////////////////////////////////               
+                // control_signal = amplitude * sin(PI2 * f * gt);  // 기본 사인파 신호 생성
                 
-                // 주기 체크 및 amplitude 증가 로직 
-                if (gt >= (2.0/f)) {  // 첫 주기 이후부터 체크
-                    double current_cycle = floor(gt * f / 2.0) * (2.0/f);
-                    if (current_cycle > prev_cycle) {  // 새로운 주기 시작
-                        if (amplitude < MAX_AMPLITUDE && dynamic_run==1) {
-                            amplitude += 2.0;
-                            printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
-                        } else if (amplitude == MAX_AMPLITUDE) {
-                            amplitude = 0;  // MAX_AMPLITUDE 도달 시 정지
-                            dynamic_run = 0;
-                        }
-                        prev_cycle = current_cycle;
-                    }
-                }
+                // // 주기 체크 및 amplitude 증가 로직 
+                // if (gt >= (2.0/f)) {  // 첫 주기 이후부터 체크
+                //     double current_cycle = floor(gt * f / 2.0) * (2.0/f);
+                //     if (current_cycle > prev_cycle) {  // 새로운 주기 시작
+                //         if (amplitude < MAX_AMPLITUDE && dynamic_run==1) {
+                //             amplitude += 2.0;
+                //             printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
+                //         } else if (amplitude == MAX_AMPLITUDE) {
+                //             amplitude = 0;  // MAX_AMPLITUDE 도달 시 정지
+                //             dynamic_run = 0;
+                //         }
+                //         prev_cycle = current_cycle;
+                //     }
+                // }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 				// GMS_friction(qdotdes[i], friction_torque[i]);
 				// control_signal = friction_torque[i];
@@ -982,6 +982,7 @@ void extract_data(double &percent_extract)
 		percent_extract = (double)extract / target_vels.size() * 100;
 	}
 	fclose(fp3);
+	exit(1);
 }
 
 
@@ -1048,8 +1049,8 @@ void save_run(void *arg)
                 SAVE_MOVE_BUFFER = false;
                 WRITE_MOVE_BUFFER = false;
 				printf("save_run\n");
-				// extract_data(percent_extract);
-				exit(1);
+				extract_data(percent_extract);
+
 
 
             
