@@ -266,7 +266,8 @@ optimization_results = {
 
 
 # JSON 파일로 저장
-with open('/home/user/release/data_csvFile/gms_parameters.json', 'w') as f:
+# with open('/home/user/release/data_csvFile/gms_parameters.json', 'w') as f:
+with open('friction_parameters.json', 'w') as f:
     json.dump(optimization_results, f, indent=4)
 
 print("최적화된 파라미터들이 JSON 파일로 저장되었습니다.")

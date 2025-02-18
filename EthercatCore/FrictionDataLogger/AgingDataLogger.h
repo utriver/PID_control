@@ -20,7 +20,7 @@
 #define RAW_BUFF_SIZE	4000*60          //
 #define MOVE_BUFF_SIZE 	4000*1           // sec
 // #define CTRL_BUFF_SIZE  450*4000			//4000*5
-#define CTRL_BUFF_SIZE 40*4000			//4000*5
+#define CTRL_BUFF_SIZE 32*4000			//4000*5
 #define BUFF_HEAD_CUT 	0.1         		// 1.5sec after rest
 #define BUFF_TAIL_CUT 	0.13   		      	// 0.5sec before rest
 #define SKIP_IDX  4000*BUFF_HEAD_CUT

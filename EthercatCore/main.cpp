@@ -616,118 +616,148 @@ void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes,  boo
 
 double motion_time = 0;
 bool initflag = true;
-bool flag_datalogging = false;
+bool flag_datalogging = true;
 int isInitLspb = 1;
 double q_init, qdes_lspb, qdes_prev;
 int ctr_traj = 0;
 bool gen = true;
 double qprev = 0;
 double last_increase_time = 0;
-double MAX_AMPLITUDE = 12.0;  // 理쒕 amplitude 媛 꽕젙
+double MAX_AMPLITUDE = 10.0;  // 최대 amplitude 값 설정 
 double MIN_AMPLITUDE = 5.0;
 double motion_number;
-int dynamic_id = 0;
-int update_flag;
+double prev_cycle = 0;
+bool first_cycle = true;
+int dynamic_run = 1;
 int compute() {
     if (demo_mode == DEMO_MODE_TORQUE) {
-
-			for (int i = 0; i < NUM_AXIS; ++i) {
-				if (system_ready) {
-					_time += period;
-					if(initflag){
-						ZeroPos[i] = ActualPos[i];
-						WRITE_MOVE_BUFFER = true;
-						update_flag = 1;
-						static double prev_cycle = 0;
-						if (amplitude < MAX_AMPLITUDE){
-							if (gt >= (2.0/f) && gt - prev_cycle >= (2.0/f)) {
-								if (amplitude < MAX_AMPLITUDE) {
-									amplitude += 2.0;
-									prev_cycle = gt;
-									printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
-								}
-							}
-							control_signal = amplitude*sin(PI2*f*fmod(gt, 2.0/f));
-							
-						}
-						else if (amplitude >= MAX_AMPLITUDE){
-							control_signal = 0;
-						}
-					}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-					// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
-					/////////////////////////////////////////////////////////////////////////////
-					// if (motion_number == 0)
-					// {pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);}
-					// else if (motion_number == 1)
-					// {	
-					// 	stribeck_friction(qdotdes[i], friction_torque[i]);
-					// 	pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
-					// }
-					// else if (motion_number == 2)
-					// {
-					// 	arctan_friction(qdotdes[i], friction_torque[i]);
-					// 	pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
-					// }
-					// else if (motion_number == 3)
-					// {
-					// 	Lugre_friction(qdotdes[i], friction_torque[i]);
-					// 	pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
-					// }
-					// else if (motion_number == 4)
-					// {
-					// 	GMS_friction(qdotdes[i], friction_torque[i]);
-					// 	pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
-					// }
-					/////////////////////////////////////////////////////////////////////////////
-					// control_signal =(fc-amplitude)*sin(PI2*f*gt);
-					// control_signal =amplitude;
-
-					// // 3二쇨린留덈떎 amplitude 利앷�肄붾뱶
-					// static double prev_cycle = 0;
-					// if (gt >= (2.0/f) && gt - prev_cycle >= (2.0/f)) {
-					// 	if (amplitude < MAX_AMPLITUDE) {
-					// 		amplitude += 2.0;
-					// 		prev_cycle = gt;
-					// 		printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
-					// 	}
-					// }
-					// ramp_input(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
-					// pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
-					// control_signal = amplitude*sin(PI2*f*fmod(gt, 2.0/f));
-					
-					
-					// GMS_friction(qdotdes[i], friction_torque[i]);
-					// control_signal = friction_torque[i];
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-					TargetTor[i] = physical2ethercat(control_signal);
-					// TargetTor[i] = physical2ethercat(control_signal);
-					// qdes[i] = _trajectory.gen_lspb_trajectory(true);
-					motion_time += period;
-					qprev=q[i];
-				} else {
-					_systemInterface_EtherCAT_EthercatCore.setServoOn(i);
-					control_signal = 0;
-					TargetTor[i] = 0;  // Zero torque when not ready
+		if (system_ready)
+		{	
+			for(int i=0; i<NUM_AXIS; i++)
+			{
+				if(flag_datalogging)
+				{
+    					// Start of Selection
+    					q_init = q[i];   // 첫 번째 실제 위치
+					WRITE_MOVE_BUFFER = true;
+					// _dataLogger.activate();
+					flag_datalogging = false;
 				}
-			}
 			
-		} else if (demo_mode == DEMO_MODE_POSITION) {
-			for (int i = 0; i < NUM_AXIS; ++i) {
-				if (system_ready) {
-					// Simple sinusoidal trajectory for position
-					qdes[i] = 50000 * sin(PI2 * 0.2 * gt);
-					TargetPos[i] = (INT32)(qdes[i]) + ZeroPos[i];
-				} else {
-					_systemInterface_EtherCAT_EthercatCore.setServoOn(i);
-					TargetPos[i] = ZeroPos[i] = ActualPos[i];
+				if(isInitLspb == 1)
+				{
+					qdes_lspb_init = -qdes[i];   //first desired position
+					isInitLspb = 0;
 				}
+
+				if(ctr_traj < _trajectory.max_traj_size-1)
+				{
+						// Start of Selection
+					qdes[i] = q_init + qdes[i] + qdes_lspb_init;
+				}else{
+					
+					const double q_last = 0.0061047 ;
+					gen = false;
+					qdes[i] = q_last;
+					ctr_traj = _trajectory.max_traj_size+1000000;
+					
+					// _dataLogger.deactivate();
+				}	
+				
+					ctr_traj++; //=motion_time
+
+					qdes_prev = qdes[i];
 			}
 		}
-		return 0;
-	}
+
+        for (int i = 0; i < NUM_AXIS; ++i) {
+            if (system_ready) {
+            	_time += period;
+				//1. Assume that actual position and velocity (q, qdot) unit is changed to radian and radian/sec: DONE
+				//2. Assume that actual torque unit is changed to Nm //DONE
+				//3. generate desired trajectory (qdes, qdotdes, qdotdotdes) in radian, radian/sec, and radian/sec^2
+				//4. Implement PID control for torque control\
+				//4.1: error: qdes - q, qdotdes - qdot
+				//4.2: PD: Kp * error - Kd*qdot
+				//4.3: PID: Kp * error + Ki * integral_error + Kd * error_dot
+				//4.4: 
+
+				if(initflag){
+					ZeroPos[i] = ActualPos[i];
+					if(ActualPos[0] != 0) initflag = false;					
+				}
+
+				// LowPassDerivative(qprev,q[i], qdot[i], fc, qdotdes[i]);
+				// generate trajectory 
+				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
+				////////////////static test///////////////////////////////////////
+				// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
+				// pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
+				// control_signal = computed_torque[i];
+
+				// control_signal =(fc-amplitude)*sin(PI2*f*gt);
+				// control_signal =amplitude;
+
+				// 3주기마다 amplitude 증가코드
+				// static double prev_cycle = 0;
+				// if (gt >= (2.0/f) && gt - prev_cycle >= (2.0/f)) {
+				// 	if (amplitude < MAX_AMPLITUDE) {
+				// 		amplitude += 2.0;
+				// 		prev_cycle = gt;
+				// 		printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
+				// 		control_signal = amplitude*sin(PI2*f*fmod(gt, 2.0/f));
+
+				// 	}else if(amplitude == MAX_AMPLITUDE){
+				// 		control_signal = 0;
+				// 	}
+
+				// }
+				 // 기본 사인파 신호 생성
+ ////////////////////////////////////////////////////////////////////////////////////////////////////////               
+                control_signal = amplitude * sin(PI2 * f * gt);  // 기본 사인파 신호 생성
+                
+                // 주기 체크 및 amplitude 증가 로직 
+                if (gt >= (2.0/f)) {  // 첫 주기 이후부터 체크
+                    double current_cycle = floor(gt * f / 2.0) * (2.0/f);
+                    if (current_cycle > prev_cycle) {  // 새로운 주기 시작
+                        if (amplitude < MAX_AMPLITUDE && dynamic_run==1) {
+                            amplitude += 2.0;
+                            printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
+                        } else if (amplitude == MAX_AMPLITUDE) {
+                            amplitude = 0;  // MAX_AMPLITUDE 도달 시 정지
+                            dynamic_run = 0;
+                        }
+                        prev_cycle = current_cycle;
+                    }
+                }
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+				// GMS_friction(qdotdes[i], friction_torque[i]);
+				// control_signal = friction_torque[i];
+				TargetTor[i] = physical2ethercat(control_signal);
+				// TargetTor[i] = physical2ethercat(control_signal);
+				// qdes[i] = _trajectory.gen_lspb_trajectory(true);
+				motion_time += period;
+				qprev=q[i];
+            } else {
+                _systemInterface_EtherCAT_EthercatCore.setServoOn(i);
+				control_signal = 0;
+                TargetTor[i] = 0;  // Zero torque when not ready
+            }
+        }
+    } else if (demo_mode == DEMO_MODE_POSITION) {
+        for (int i = 0; i < NUM_AXIS; ++i) {
+            if (system_ready) {
+                // Simple sinusoidal trajectory for position
+                qdes[i] = 50000 * sin(PI2 * 0.2 * gt);
+                TargetPos[i] = (INT32)(qdes[i]) + ZeroPos[i];
+            } else {
+                _systemInterface_EtherCAT_EthercatCore.setServoOn(i);
+                TargetPos[i] = ZeroPos[i] = ActualPos[i];
+            }
+        }
+    }
+    return 0;
+}
 
 
 #define _CRT_SECURE_NO_WARNINGS
@@ -1005,8 +1035,7 @@ bool need_processing = false;
 	
 // }
 // RT 태스크는 최소한의 작업만 수행
-int buffer_size;
-bool read_flag = false;
+
 void save_run(void *arg) 
 {
     rt_task_set_periodic(NULL, TM_NOW, cycle_ns);
@@ -1062,7 +1091,6 @@ void EthercatCore_run(void *arg)
 		_systemInterface_EtherCAT_EthercatCore.readBuffer(0x606c0, ActualVel);
 		_systemInterface_EtherCAT_EthercatCore.readBuffer(0x60770, ActualTor);
 		_systemInterface_EtherCAT_EthercatCore.readBuffer(0x60610, ModeOfOperationDisplay);
-		WRITE_MOVE_BUFFER = true;
 
 		
 
