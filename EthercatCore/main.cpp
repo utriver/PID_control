@@ -1048,7 +1048,9 @@ void save_run(void *arg)
                 SAVE_MOVE_BUFFER = false;
                 WRITE_MOVE_BUFFER = false;
 				printf("save_run\n");
-				extract_data(percent_extract);
+				// extract_data(percent_extract);
+				exit(1);
+
 
             
         }
