@@ -59,6 +59,8 @@
         "xstring": "cpp",
         "xtr1common": "cpp",
         "xutility": "cpp",
-        "eigen": "cpp"
+        "eigen": "cpp",
+        "chrono": "cpp",
+        "numeric": "cpp"
     }
 }

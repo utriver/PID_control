@@ -616,86 +616,72 @@ void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes,  boo
 
 double motion_time = 0;
 bool initflag = true;
-bool flag_datalogging = true;
+bool flag_datalogging = false;
 int isInitLspb = 1;
 double q_init, qdes_lspb, qdes_prev;
 int ctr_traj = 0;
 bool gen = true;
 double qprev = 0;
 double last_increase_time = 0;
-double MAX_AMPLITUDE = 12.0;  // 理쒕� amplitude 媛� �꽕�젙
+double MAX_AMPLITUDE = 12.0;  // 理쒕 amplitude 媛 꽕젙
 double MIN_AMPLITUDE = 5.0;
 double motion_number;
-int dynamic_id=1;
+int dynamic_id = 0;
+int update_flag;
 int compute() {
     if (demo_mode == DEMO_MODE_TORQUE) {
-		// if (dynamic_id == 0)
-		// {
-			if (system_ready)
-			{	
-			if (dynamic_id == 0){
-				for(int i=0; i<NUM_AXIS; i++)
-				{
-					if(flag_datalogging)
-					{
-							// Start of Selection
-						q_init = q[i];   // 泥� 踰덉㎏ �떎�젣 �쐞移�
-						WRITE_MOVE_BUFFER = true;
-						// _dataLogger.activate();
-						flag_datalogging = false;
-					}
-				
-					if(isInitLspb == 1)
-					{
-						qdes_lspb_init = -qdes[i];   //first desired position
-						isInitLspb = 0;
-					}
-
-					if(ctr_traj < _trajectory.max_traj_size-1)
-					{
-							// Start of Selection
-						qdes[i] = q_init + qdes[i] + qdes_lspb_init;
-					}else{
-						
-						const double q_last = 2.3964 ; //last position
-						gen = false;
-						qdes[i] = q_last;
-						ctr_traj = _trajectory.max_traj_size+1000;
-						// _dataLogger.deactivate();
-					}	
-					
-						ctr_traj++; //=motion_time
-
-						qdes_prev = qdes[i];
-				}
-				}
-			}
 
 			for (int i = 0; i < NUM_AXIS; ++i) {
 				if (system_ready) {
 					_time += period;
-					//1. Assume that actual position and velocity (q, qdot) unit is changed to radian and radian/sec: DONE
-					//2. Assume that actual torque unit is changed to Nm //DONE
-					//3. generate desired trajectory (qdes, qdotdes, qdotdotdes) in radian, radian/sec, and radian/sec^2
-					//4. Implement PID control for torque control
-					//4.1: error: qdes - q, qdotdes - qdot
-					//4.2: PD: Kp * error - Kd*qdot
-					//4.3: PID: Kp * error + Ki * integral_error + Kd * error_dot
-					//4.4: 
-
 					if(initflag){
 						ZeroPos[i] = ActualPos[i];
 						if(ActualPos[0] != 0) initflag = false;					
 					}
+///////////////////////////////////static mode///////////////////////////////////
 					if (dynamic_id ==0 ){
-					// LowPassDerivative(qprev,q[i], qdot[i], fc, qdotdes[i]);
-					// generate trajectory
+							flag_datalogging = true;
+							if(flag_datalogging)
+						{
+								// Start of Selection
+							q_init = q[i];   // 泥 踰덉㎏ 떎젣 쐞移
+							WRITE_MOVE_BUFFER = true;
+							update_flag = 1;
 
-					generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
-					pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
-					control_signal = computed_torque[i];
+							// _dataLogger.activate();
+							flag_datalogging = false;
+						}
+					
+						if(isInitLspb == 1)
+						{
+							qdes_lspb_init = -qdes[i];   //first desired position
+							isInitLspb = 0;
+						}
+
+						if(ctr_traj < _trajectory.max_traj_size-1)
+						{
+								// Start of Selection
+							qdes[i] = q_init + qdes[i] + qdes_lspb_init;
+						}else{
+							
+							const double q_last = 2.3964 ; //last position
+							gen = false;
+							qdes[i] = q_last;
+							ctr_traj = _trajectory.max_traj_size+1000;
+							// _dataLogger.deactivate();
+						}	
+						
+							ctr_traj++; //=motion_time
+
+							qdes_prev = qdes[i];
+							generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
+							pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
+							control_signal = computed_torque[i];
 					}
+///////////////////////////////////dynamic mode///////////////////////////////////
 					else if (dynamic_id==1){
+						WRITE_MOVE_BUFFER = true;
+						update_flag = 1;
 						static double prev_cycle = 0;
 						if (amplitude < MAX_AMPLITUDE){
 							if (gt >= (2.0/f) && gt - prev_cycle >= (2.0/f)) {
@@ -713,6 +699,7 @@ int compute() {
 						}
 					}
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 					// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
 					/////////////////////////////////////////////////////////////////////////////
 					// if (motion_number == 0)
@@ -757,6 +744,8 @@ int compute() {
 					
 					// GMS_friction(qdotdes[i], friction_torque[i]);
 					// control_signal = friction_torque[i];
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 					TargetTor[i] = physical2ethercat(control_signal);
 					// TargetTor[i] = physical2ethercat(control_signal);
 					// qdes[i] = _trajectory.gen_lspb_trajectory(true);
@@ -768,119 +757,7 @@ int compute() {
 					TargetTor[i] = 0;  // Zero torque when not ready
 				}
 			}
-			// else if (dynamic_id == 1)
-			// {
-			// 	if (system_ready)
-			// {	
-			// 	for(int i=0; i<NUM_AXIS; i++)
-			// 	{
-			// 		if(flag_datalogging)
-			// 		{
-			// 				// Start of Selection
-			// 			q_init = q[i];   // 泥� 踰덉㎏ �떎�젣 �쐞移�
-			// 			WRITE_MOVE_BUFFER = true;
-			// 			flag_datalogging = false;
-			// 		}
-				
-			// 		if(isInitLspb == 1)
-			// 		{
-			// 			qdes_lspb_init = -qdes[i];   //first desired position
-			// 			isInitLspb = 0;
-			// 		}
-
-			// 		if(ctr_traj < _trajectory.max_traj_size-1)
-			// 		{
-			// 				// Start of Selection
-			// 			qdes[i] = q_init + qdes[i] + qdes_lspb_init;
-			// 		}else{
-						
-			// 			const double q_last = 1.2038 ; //last position
-			// 			gen = false;
-			// 			qdes[i] = q_last;
-			// 			ctr_traj = _trajectory.max_traj_size+1000;
-			// 			dynamic_id = 1;
-			// 			// _dataLogger.deactivate();
-			// 		}	
-					
-			// 			ctr_traj++; //=motion_time
-
-			// 			qdes_prev = qdes[i];
-			// 	}
-			// }
-
-			// for (int i = 0; i < NUM_AXIS; ++i) {
-			// 	if (system_ready) {
-			// 		_time += period;
-			// 		//1. Assume that actual position and velocity (q, qdot) unit is changed to radian and radian/sec: DONE
-			// 		//2. Assume that actual torque unit is changed to Nm //DONE
-			// 		//3. generate desired trajectory (qdes, qdotdes, qdotdotdes) in radian, radian/sec, and radian/sec^2
-			// 		//4. Implement PID control for torque control
-			// 		//4.1: error: qdes - q, qdotdes - qdot
-			// 		//4.2: PD: Kp * error - Kd*qdot
-			// 		//4.3: PID: Kp * error + Ki * integral_error + Kd * error_dot
-			// 		//4.4: 
-
-			// 		if(initflag){
-			// 			ZeroPos[i] = ActualPos[i];
-			// 			if(ActualPos[0] != 0) initflag = false;					
-			// 		}
-
-			// 		// LowPassDerivative(qprev,q[i], qdot[i], fc, qdotdes[i]);
-			// 		// generate trajectory 
-			// 		generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
-			// 		// generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);	
-			// 		if (motion_number == 0)
-			// 		{pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);}
-			// 		else if (motion_number == 1)
-			// 		{	
-			// 			stribeck_friction(qdotdes[i], friction_torque[i]);
-			// 			pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
-			// 		}
-			// 		else if (motion_number == 2)
-			// 		{
-			// 			arctan_friction(qdotdes[i], friction_torque[i]);
-			// 			pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
-			// 		}
-			// 		else if (motion_number == 3)
-			// 		{
-			// 			Lugre_friction(qdotdes[i], friction_torque[i]);
-			// 			pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
-			// 		}
-			// 		else if (motion_number == 4)
-			// 		{
-			// 			GMS_friction(qdotdes[i], friction_torque[i]);
-			// 			pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
-			// 		}
-			// 		// control_signal =(fc-amplitude)*sin(PI2*f*gt);
-			// 		// control_signal =amplitude;
-
-			// 		// 3二쇨린留덈떎 amplitude 利앷�肄붾뱶
-			// 		// static double prev_cycle = 0;
-			// 		// if (gt >= (3.0/f) && gt - prev_cycle >= (3.0/f)) {
-			// 		// 	if (amplitude > MIN_AMPLITUDE) {
-			// 		// 		amplitude -= 5.0;
-			// 		// 		prev_cycle = gt;
-			// 		// 		printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
-			// 		// 	}
-			// 		// }
-			// 		// ramp_input(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
-			// 		// pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
-			// 		// control_signal = amplitude*sin(PI2*f*fmod(gt, 3.0/f));
-			// 		control_signal = computed_torque[i];
-					
-			// 		// GMS_friction(qdotdes[i], friction_torque[i]);
-			// 		// control_signal = friction_torque[i];
-			// 		TargetTor[i] = physical2ethercat(control_signal);
-			// 		// TargetTor[i] = physical2ethercat(control_signal);
-			// 		// qdes[i] = _trajectory.gen_lspb_trajectory(true);
-			// 		motion_time += period;
-			// 		qprev=q[i];
-			// 	} else {
-			// 		_systemInterface_EtherCAT_EthercatCore.setServoOn(i);
-			// 		control_signal = 0;
-			// 		TargetTor[i] = 0;  // Zero torque when not ready
-			// 	}
-			// }
+			
 		} else if (demo_mode == DEMO_MODE_POSITION) {
 			for (int i = 0; i < NUM_AXIS; ++i) {
 				if (system_ready) {
@@ -1121,69 +998,6 @@ void extract_data(double &percent_extract)
 	fclose(fp3);
 }
 
-// // 留덉같 �뜲�씠�꽣瑜� �쐞�븳 援ъ“泥� �젙�쓽
-// typedef struct {
-//     double* velocities;  // �냽�룄 �뜲�씠�꽣 諛곗뿴
-//     double* torques;     // �넗�겕 �뜲�씠�꽣 諛곗뿴
-//     int n_points;        // �뜲�씠�꽣 �룷�씤�듃 媛쒖닔
-// } friction_data_t;
-
-// // Stribeck 留덉같 紐⑤뜽 �븿�닔
-// double stribeck_friction(double v, const double* params) {
-//     if (v >= 0) {
-//         double Fc = params[0];
-//         double Fs = params[1];
-//         double Vs = params[2];
-//         double delta = params[3];
-//         double s2 = params[4];
-//         return Fc + (Fs - Fc) * exp(-pow(fabs(v) / Vs, delta)) + s2 * v;
-//     } else {
-//         double Fc = params[5];
-//         double Fs = params[6];
-//         double Vs = params[7];
-//         double delta = params[8];
-//         double s2 = params[9];
-//         return -Fc + -(Fs - Fc) * exp(-pow(fabs(v) / Vs, delta)) + s2 * v;
-//     }
-// }
-
-// // 紐⑹쟻 �븿�닔 (理쒖냼�솕�븷 �븿�닔)
-// double objective_function(unsigned n, const double* params, double* grad, void* data) {
-//     friction_data_t* d = (friction_data_t*)data;
-//     double error_sum = 0.0;
-    
-//     // 洹몃옒�뵒�뼵�듃媛� �븘�슂�븳 寃쎌슦
-//     if (grad) {
-//         // �닔移섏쟻 誘몃텇�쓣 �궗�슜�븯�뿬 洹몃옒�뵒�뼵�듃 怨꾩궛
-//         double h = 1e-8;
-//         for (int i = 0; i < n; i++) {
-//             double* params_plus = (double*)malloc(n * sizeof(double));
-//             memcpy(params_plus, params, n * sizeof(double));
-//             params_plus[i] += h;
-//             printf("identifying\n");
-//             double f1 = 0.0, f2 = 0.0;
-//             for (int j = 0; j < d->n_points; j++) {
-//                 double v = d->velocities[j];
-//                 double t = d->torques[j];
-//                 f1 += pow(stribeck_friction(v, params_plus) - t, 2);
-//                 f2 += pow(stribeck_friction(v, params) - t, 2);
-//             }
-//             grad[i] = (f1 - f2) / h;
-//             free(params_plus);
-//         }
-//     }
-    
-//     // 紐⑹쟻 �븿�닔 媛� 怨꾩궛
-//     for (int i = 0; i < d->n_points; i++) {
-//         double v = d->velocities[i];
-//         double t = d->torques[i];
-//         double pred = stribeck_friction(v, params);
-//         error_sum += pow(pred - t, 2);
-//     }
-    
-//     return error_sum;
-// }
-
 
 int filenum1 = 1;
 int filenum2 = 1;
@@ -1236,24 +1050,29 @@ void dynamic_calculation(void *arg)
 	
 }
 // RT 태스크는 최소한의 작업만 수행
+int buffer_size;
+bool read_flag = false;
 void save_run(void *arg) 
 {
     rt_task_set_periodic(NULL, TM_NOW, cycle_ns);
 
     while(run)
     {
-        if (SAVE_MOVE_BUFFER)
+        if (SAVE_MOVE_BUFFER && !read_flag)
         {
-            // if (dynamic_id == 0) {
+            if (dynamic_id == 0) {
+                _frictionDataLogger.write_rt_buffer0(filenum2, percent_ready);
+                SAVE_MOVE_BUFFER = false;
+                WRITE_MOVE_BUFFER = false;
+				printf("save_run\n");
+                need_processing = true;  // 비실시간 작업 트리거
+				read_flag = true;
+            } else if (dynamic_id == 1) {
                 _frictionDataLogger.write_rt_buffer1(filenum2, percent_ready);
                 SAVE_MOVE_BUFFER = false;
                 WRITE_MOVE_BUFFER = false;
-                // need_processing = true;  // 비실시간 작업 트리거
-            // } else if (dynamic_id == 1) {
-            //     _frictionDataLogger.write_rt_buffer1(filenum2, percent_ready);
-            //     SAVE_MOVE_BUFFER = false;
-            //     WRITE_MOVE_BUFFER = false;
-            // }
+				read_flag = true;
+            }
         }
         rt_task_wait_period(NULL);
     }
@@ -1266,6 +1085,7 @@ void EthercatCore_run(void *arg)
 	unsigned int runcount=0;
 	RTIME now, previous;
 	
+	gt = 0;
 	// Synchronize EtherCAT Master (for Distributed Clock Mode)
 	_systemInterface_EtherCAT_EthercatCore.syncEcatMaster();
 	
@@ -1294,7 +1114,8 @@ void EthercatCore_run(void *arg)
 		_systemInterface_EtherCAT_EthercatCore.readBuffer(0x606c0, ActualVel);
 		_systemInterface_EtherCAT_EthercatCore.readBuffer(0x60770, ActualTor);
 		_systemInterface_EtherCAT_EthercatCore.readBuffer(0x60610, ModeOfOperationDisplay);
-		
+		WRITE_MOVE_BUFFER = true;
+
 		
 
 		ethercat2physical();
@@ -1335,10 +1156,12 @@ void EthercatCore_run(void *arg)
 		}
 		if(system_ready)
 		{
-			if(WRITE_MOVE_BUFFER){
-				_frictionDataLogger.update_rt_buffer(ctrlData);
-				for (int i = 0; i < 100; i++){
-					printf("data update\n");
+			if(WRITE_MOVE_BUFFER && update_flag){
+				if (dynamic_id == 0){
+					_frictionDataLogger.update_rt_buffer0(ctrlData);				
+				}
+				else{
+					_frictionDataLogger.update_rt_buffer1(ctrlData);
 				}
 				
 //				printf("******* START writing to the buffer *****\n");
@@ -1347,6 +1170,7 @@ void EthercatCore_run(void *arg)
 				{
 //					printf("*******Buffer is full. Start saving data *****\n");
 					WRITE_MOVE_BUFFER = false;
+					update_flag = 0;
 					SAVE_MOVE_BUFFER = true;
 					_frictionDataLogger.isRTbufferFilled = false;
 				}
@@ -1374,9 +1198,17 @@ void EthercatCore_run(void *arg)
 
 		if (_systemInterface_EtherCAT_EthercatCore.isSystemReady()&& (runcount>WAKEUP_TIME*(NSEC_PER_SEC/cycle_ns)))
 		{
-			system_ready=1;	//all drives have been done
+			
+			// system_ready=1;	//all drives have been done
+			if (!system_ready) {
+                gt = 0.0;
+                system_ready = 1;
+            }
+			else {
+				gt += period;
+			}			
 
-			gt+= period;
+			// gt+= period;
 			
 			if (worst_time<ethercat_time) worst_time=ethercat_time;
 			if(ethercat_time > max_time)
@@ -1660,8 +1492,8 @@ int main(int argc, char **argv)
 	// TO DO: Specify the cycle period (cycle_ns) here, or use default value
 //	cycle_ns=1000000; // nanosecond 1kHz
 	cycle_ns=250000; // nanosecond 4kHz
-	period=((double) cycle_ns)/((double) NSEC_PER_SEC);	//period in second unit
-	
+	period=((double) cycle_ns)/((double) NSEC_PER_SEC);	//period in second unit/
+	// period = 0.00025;
 	// Set the demo mode for EtherCAT application
 	demo_mode = DEMO_MODE_TORQUE;
 	if (demo_mode == DEMO_MODE_TORQUE)

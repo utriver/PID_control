@@ -286,9 +286,9 @@ void AgingDataLogger::write_avg_buffer()
 
 void AgingDataLogger::write_rt_buffer()
 {
-	RobotControlData *_rtLogger_save = new RobotControlData[CTRL_BUFF_SIZE1];
+	RobotControlData *_rtLogger_save = new RobotControlData[CTRL_BUFF_SIZE];
 
-	for (int i=0; i<CTRL_BUFF_SIZE1; i++)
+	for (int i=0; i<CTRL_BUFF_SIZE; i++)
 	{
         _rtLogger_save[i].time = _loggingBuff_ctrl[i].time;
         for (int j = 0; j < NUM_AXIS; j++)
@@ -365,7 +365,7 @@ void AgingDataLogger::write_rt_buffer()
 		exit(1);
 	}
 
-	for (int i=0; i<CTRL_BUFF_SIZE1; i++)
+	for (int i=0; i<CTRL_BUFF_SIZE; i++)
 	{
 		fprintf(file,"%f, ", _rtLogger_save[i].time);
 		for (int j=0;j<CORE_NUM_AXIS;j++)
@@ -490,9 +490,10 @@ void AgingDataLogger::update_avg_buffer(RobotControlData ctrlData, int traj_phas
 	}
 }
 
-void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData, size_t bufferSize)
+void AgingDataLogger::update_rt_buffer0(RobotControlData ctrlData)
 {
-    if (ctrloggerIdx < bufferSize)
+	
+	if (ctrloggerIdx < CTRL_BUFF_SIZE)
     {
         _loggingBuff_ctrl[ctrloggerIdx].time = ctrlData.time;
         for (int i = 0; i < CORE_NUM_AXIS; i++)
@@ -513,10 +514,28 @@ void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData, size_t bufferS
     }
 }
 
-void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData)
+void AgingDataLogger::update_rt_buffer1(RobotControlData ctrlData)
 {
-
-	update_rt_buffer(ctrlData, CTRL_BUFF_SIZE1);
+	
+	if (ctrloggerIdx < CTRL_BUFF_SIZE1)
+    {
+        _loggingBuff_ctrl1[ctrloggerIdx].time = ctrlData.time;
+        for (int i = 0; i < CORE_NUM_AXIS; i++)
+        {
+            _loggingBuff_ctrl1[ctrloggerIdx].q[i] = ctrlData.q[i];
+            _loggingBuff_ctrl1[ctrloggerIdx].qdes[i] = ctrlData.qdes[i];
+            _loggingBuff_ctrl1[ctrloggerIdx].qdot[i] = ctrlData.qdot[i];
+            _loggingBuff_ctrl1[ctrloggerIdx].qdotdes[i] = ctrlData.qdotdes[i];
+            _loggingBuff_ctrl1[ctrloggerIdx].coretor[i] = ctrlData.coretor[i];
+            _loggingBuff_ctrl1[ctrloggerIdx].friction_torque[i] = ctrlData.friction_torque[i];
+        }
+        ctrloggerIdx++;
+    }
+    else
+    {
+        isRTbufferFilled = true;
+        ctrloggerIdx = 0;
+    }
 }
 
 
