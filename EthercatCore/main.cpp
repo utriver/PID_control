@@ -965,7 +965,7 @@ void extract_data(double &percent_extract)
 	}
 	
 	//뙆씪 옣 떆 쑀슚꽦 寃궗 異붽
-	FILE *fp3 = fopen("friction_data/RT_test/RT-data-3.csv", "w");
+	FILE *fp3 = fopen("/home/user/release/friction_data/RT_test/RT-data-3.csv", "w");
 	if (fp3 == NULL) {
 		printf("Error: Cannot open output file\n");
 		return;
@@ -982,7 +982,7 @@ void extract_data(double &percent_extract)
 		percent_extract = (double)extract / target_vels.size() * 100;
 	}
 	fclose(fp3);
-	exit(1);
+		exit(1);
 }
 
 

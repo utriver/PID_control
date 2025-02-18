@@ -4,7 +4,7 @@ from scipy.signal import butter, filtfilt
 from scipy.optimize import least_squares
 import matplotlib.pyplot as plt
 import json
-
+from tqdm import tqdm
 
 # -------------------------------
 # 데이터 불러오기 및 전처리
@@ -29,9 +29,9 @@ w = fc / (fs / 2)
 b, a = butter(4, w, 'low')
 position_filtered = filtfilt(b, a, position)
 dt = 0.00025
-N = 8  # number of bristles
+N = 12  # number of bristles
 
-downsample_factor = 4
+downsample_factor = 8
 position_filtered = position_filtered[::downsample_factor]
 time = time[::downsample_factor]
 torque_measured = torque_measured[::downsample_factor]
@@ -48,17 +48,23 @@ torque_measured = torque_measured[:-1]
 # -------------------------------
 # 모델 상수 (고정값)
 # -------------------------------
-Fcp = 51.253416
-Fsp = 11.770659
-Vsp = 0.266871
-delta_sp = 0.975330
-s2p = 1.757760
+# 정적 마찰 파라미터들을 JSON 파일에서 불러오기
+with open('friction_parameters.json', 'r') as f:
+    friction_params = json.load(f)
 
-Fcn = 51.312922
-Fsn = 13.519600
-Vsn = 0.278165
-delta_sn = 1.061362
-s2n = 1.629037
+# JSON 파일에서 파라미터 값 추출
+static_params = friction_params["FricParameter"][0]
+Fcp = static_params["F_c_p"]
+Fsp = static_params["F_s_p"]
+Vsp = static_params["F_v_p"]
+delta_sp = static_params["delta_p"]
+s2p = static_params["sigma_2_p"]
+
+Fcn = static_params["F_c_n"]
+Fsn = static_params["F_s_n"]
+Vsn = static_params["F_v_n"]
+delta_sn = static_params["delta_n"]
+s2n = static_params["sigma_2_n"]
 
 # -------------------------------
 # 미리 계산 가능한 값들 (dynamic data)
@@ -66,7 +72,7 @@ s2n = 1.629037
 T_dyn = len(velocity)
 s_v_array = np.zeros(T_dyn)
 sign_v = np.sign(velocity)
-cond2_array = (np.abs(velocity) < 0.004)  # Boolean array
+cond2_array = (np.abs(velocity) < 0.0041)  # Boolean array
 
 for t in range(T_dyn):
     if velocity[t] > 0:
@@ -86,16 +92,15 @@ def gms_model(p, velocity, s_v_array, sign_v, cond2_array, dt, N):
     """
     k = p[0:N]
     beta = p[N:2*N]
-    # C = p[2*N]
-    C=300
+    C = 300
     exp_beta = np.exp(beta)
-    alpha = exp_beta / np.sum(exp_beta)  # alpha_i = exp(beta_i) / sum(exp(beta))
+    alpha = exp_beta / np.sum(exp_beta)
     
     T = len(velocity)
     z = np.zeros((T, N))
     F_pred = np.zeros(T)
     
-    for t in range(T):
+    for t in tqdm(range(T), desc="동적 모델 계산 중"):
         s_v = s_v_array[t]
         F_t = 0.0
         for i in range(N):
@@ -128,7 +133,7 @@ def residual_dyn(p, velocity, s_v_array, sign_v, cond2_array, dt, N, torque_meas
 # 파라미터 초기 추정치 설정
 # p = [k (N개), beta (N개), C (1개)]
 p0_dyn = np.concatenate([
-    0.0065 * np.ones(N)*1e7,         # 초기 k
+    0.006 * np.ones(N)*1e7,         # 초기 k
     -np.log(N) * np.ones(N),  # beta 초기값 -> alpha = exp(-log(N))/sum(exp(-log(N))) = 1/N
     np.array([300.0])         # C 초기값
 ])
@@ -161,7 +166,7 @@ print("최적의 C:", C_opt)
 T_slide = len(slide_velocity)
 s_v_array_slide = np.zeros(T_slide)
 sign_v_slide = np.sign(slide_velocity)
-cond2_array_slide = (np.abs(slide_velocity) < 0.004)
+cond2_array_slide = (np.abs(slide_velocity) < 0.0041)
 
 for t in range(T_slide):
     if slide_velocity[t] > 0:
@@ -176,7 +181,8 @@ def gms_model_slide(C, fixed_k, fixed_alpha, velocity, s_v_array, sign_v, cond2_
     T = len(velocity)
     z = np.zeros((T, N))
     F_pred = np.zeros(T)
-    for t in range(T):
+    
+    for t in tqdm(range(T), desc="슬라이드 모델 계산 중"):
         s_v = s_v_array[t]
         F_t = 0.0
         for i in range(N):
