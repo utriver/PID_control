@@ -416,128 +416,267 @@ void Lugre_friction(double qdotdes, double &friction_torque)
 int gms_counter=0;
 #define N_MAXWELL 8
 double z[N_MAXWELL] = {0};
-// void GMS_friction(double qdotdes, double &friction_torque)
-// {
-//     // �븿�닔 �떆�옉�떆 friction_torque 珥덇린�솕
-//     friction_torque = 0;
+ /////////////////friction parameter//////////////////////
+struct GMSParams {
+    double F_c_n, F_c_p;
+    double F_s_n, F_s_p;
+    double F_v_n, F_v_p;
+    int delta_n, delta_p;
+    double sigma_2_n, sigma_2_p;
+    std::vector<double> k;
+    std::vector<double> alpha;
+    double C;
+    std::vector<double> sigma;
+    double gamma1, gamma2;
+} gms_params;
+void init_gms_params() {
+	// "F_c_n": 52.749440637526654,
+    //         "F_c_p": 50.58123708182778,
+    //         "F_s_n": 12.865891220946798,
+    //         "F_s_p": 11.979542770893529,
+    //         "F_v_n": 0.28718694247383464,
+    //         "F_v_p": 0.261810714915,
+    //         "sigma_2_n": 0.7612267455768094,
+    //         "sigma_2_p": 2.1667419488118234,
+    //         "k": [
+    //             459590.00000102154,
+    //             94899.96675763091,
+    //             22890.000015553473,
+    //             13319.980367690398,
+    //             3409.6958642490554,
+    //             949.9152701629893,
+    //             1079.9036755419334,
+    //             1719.8465943284245
+    //         ],
+    //         "alpha": [
+    //             0.15130859869746047,
+    //             0.12571214570989428,
+    //             0.06549041237412855,
+    //             0.053667628766193076,
+    //             0.15095530361308088,
+    //             0.15095530361308088,
+    //             0.15095530361308088,
+    //             0.15095530361308088
+    //         ],
+    //         "sigma": [
+    //             0.0009999992784388862,
+    //             0.0010016648612461059,
+    //             0.0010198065437941341,
+    //             0.0010241089303649733,
+    //             0.0010293449791312335,
+    //             0.0010293450422804314,
+    //             0.00102934499465398,
+    //             0.0010293451706530682
+    //         ],
+    //         "C": 20396.340191214163,
+    //         "gamma1": 1846,
+    //         "gamma2": 14
+    gms_params.F_c_n = 52.749440637526654;
+    gms_params.F_c_p = 50.58123708182778;
+    gms_params.F_s_n = 12.865891220946798;
+    gms_params.F_s_p = 11.979542770893529;
+    gms_params.F_v_n = 0.28718694247383464;
+    gms_params.F_v_p = 0.261810714915;
+    gms_params.delta_n = 2;
+    gms_params.delta_p = 2;
+    gms_params.sigma_2_n = 0.7612267455768094;
+    gms_params.sigma_2_p = 2.1667419488118234;
 
-//     int N = 8;
-//     double k_opt[8] = {143921.11506902, 39798223.8440106, 9363611.67828457, 67095.0889746429, 2558.20756818028, 27105750.4476824, 582985.183877143, 21357.4720391935};
-//     double alpha_opt[8] = {0.277393295043814, 0.00185094082631222, 0.00365359131352696, 0.0100222860136948, 0.000445794147046117, 0.00290450020743669, 0.165052094736506, 0.100926088108215};
-//     double C_opt = 27.5392; // 留덉같 吏��뿰 �긽�닔 //�쟾泥� �겕湲곌� 而ㅼ쭚
-//     double vs_opt =0.95987; // �뒪�듃由щ깹 �냽�룄
-//     double sigma_opt = 453.9787; // �젏�꽦 怨꾩닔 //怨≪꽑�쓽 理쒕�媛믪씠 而ㅼ쭚
-//     double Fs = 21.4256; // �젙�쟻 留덉같�젰
-//     double Fc = 21.4256 - 0.81609; // 荑⑤” 留덉같�젰
-//     double dt = 0.00025;
-//     double s_v = Fc+(Fs-Fc)*exp(-pow(qdotdes/vs_opt,2));
+    gms_params.k = {
+        459590.00000102154,
+        94899.96675763091,
+        22890.000015553473,
+        13319.980367690398,
+        3409.6958642490554,
+        949.9152701629893,
+        1079.9036755419334,
+        1719.8465943284245
+    };
 
-//     for(int n = 0; n < N; n++) {
-//         // �뒳�씪�씠�뵫 �긽�깭 諛� �뒪�떛�궧 �긽�깭 泥섎━
-//         if(gms_counter == 0) {
-//             z[n] = 0;
+    gms_params.alpha = {
+        0.15130859869746047,
+        0.12571214570989428,
+        0.06549041237412855,
+        0.053667628766193076,
+        0.15095530361308088,
+        0.15095530361308088,
+        0.15095530361308088,
+        0.15095530361308088
+    };
+
+    gms_params.sigma = {
+        0.0009999992784388862,
+        0.0010016648612461059,
+        0.0010198065437941341,
+        0.0010241089303649733,
+        0.0010293449791312335,
+        0.0010293450422804314,
+        0.00102934499465398,
+        0.0010293451706530682
+    };
+
+    gms_params.C = 20396.340191214163;
+    gms_params.gamma1 = 1846;
+    gms_params.gamma2 = 14;
+}
+///////////////////////parameter_load//////////////////////
+// bool loadGMS(GMSParams &params){
+// 	FILE* pipe = popen("python3 /home/user/release/friction_Id/parameter_load.py","r");
+// 	if (!pipe) {
+// 		std::cerr<<"Failed to open python script"<<std::endl;
+// 		return false;
+// 	}
+// 	//result변수에 파이썬 스크립트 출력 저장
+// 	char buffer[1024];
+// 	std::string result = "";
+// 	while (fgets(buffer, sizeof(buffer), pipe) != NULL){
+// 		result += buffer;
+// 	}
+// 	pclose(pipe);
+
+// 	std::stringstream ss(result);
+// 	std:string line;
+
+// 	if(std::getline(ss, line)){
+// 		if (sscanf(line.c_str(), "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",
+// 		&params.F_c_n, &params.F_c_p, &params.F_s_n, &params.F_s_p, &params.F_v_n, &params.F_v_p,
+// 		&params.delta_n, &params.delta_p, &params.sigma_2_n, &params.sigma_2_p, &params.C, &params.gamma1, &params.gamma2) !=13){
+// 			std::cerr << "parameter load error" << std::endl;
+// 			return false;
+// 		}
+// 	}
+
+// 	// k 파라미터 읽기
+//     if (std::getline(ss, line)) {
+//         std::stringstream ss_k(line);
+//         std::string val;
+//         params.k.clear();
+//         while (std::getline(ss_k, val, ',')) {
+//             try {
+//                 params.k.push_back(std::stod(val));
+//             } catch (const std::exception& e) {
+//                 std::cerr << "k parameter load error: " << e.what() << std::endl;
+//                 return false;
+//             }
 //         }
-//         if(fabs(z[n]) < alpha_opt[n] * s_v/k_opt[n] && fabs(qdotdes) < 1e-4) {
-//             // �뒪�떛�궧 �긽�깭
-//             dz = qdotdes;
-// 			z[n] = z[n] + dz * dt;
-// 			friction_torque = friction_torque + k_opt[n] * z[n] + alpha_opt[n]*dz;
-//     }
+// 	}
+// 	// alpha 파라미터 읽기
+//     if (std::getline(ss, line)) {
+//         std::stringstream ss_alpha(line);
+//         std::string val;
+//         params.alpha.clear();
+//         while (std::getline(ss_alpha, val, ',')) {
+//             try {
+//                 params.alpha.push_back(std::stod(val));
+//             } catch (const std::exception& e) {
+//                 std::cerr << "alpha parameter load error: " << e.what() << std::endl;
+//                 return false;
+//             }
 //         }
-//         else {
-//             // �뒳�씪�씠�뵫 �긽�깭
-//             dz = (C_opt * alpha_opt[n] / k_opt[n]) * ((qdotdes > 0 ? 1 : -1) - z[n] / (alpha_opt[n]*s_v/k_opt[n]));
+// 	}
+
+// 	// sigma 파라미터 읽기
+//     if (std::getline(ss, line)) {
+//         std::stringstream ss_sigma(line);
+//         std::string val;
+//         params.sigma.clear();
+//         while (std::getline(ss_sigma, val, ',')) {
+//             try {
+//                 params.sigma.push_back(std::stod(val));
+//             } catch (const std::exception& e) {
+//                 std::cerr << "sigma parameter load error: " << e.what() << std::endl;
+//                 return false;
+//             }
 //         }
-//         // Maxwell �슂�냼 �긽�깭 蹂��닔 �뾽�뜲�씠�듃
-        
-       
-        
-        
-//     // �젏�꽦 留덉같�젰 異붽�
-//     friction_torque += sigma_opt * qdotdes;
+// 	}
+
+// 	return true;
+	
 // }
-//  k = [66303.2909367738 66269.1682674476 66269.1063012516 2218793.36418749 2218793.32895251 317144.651565354 76718.3549064896 79123.4139371207 72558.6517033946 26765.7477754477 69870.0545341115 69838.745372707] ;      % �뒪�봽留� 媛뺤꽦 怨꾩닔;
-//     alpha = [1.06492775941585 0.336883063963703 0.311386740179736 0.0209920389271211 0.0209920407778812 0.000255451067173599 0.00544452340345758 0.0130509874191778 0.00293665997264368 0.000255451092472014 0.000255450936089651 0.000255450906153214] ; % Maxwell �슂�냼 媛�以묒튂;
-//     C = 9.3593 ;     % 留덉같 吏��뿰 �긽�닔;
-//     Fs = 7.1638 ;    % �젙�쟻 留덉같�젰 (怨좎젙媛�);
-//     Fc = 363.4886 ;     % 荑⑤” 留덉같�젰 (怨좎젙媛�);
-//     vs = 7.3514 ;     % �뒪�듃由щ깹 �냽�룄;
-//     sigma = 38.4811 ; % �젏�꽦 怨꾩닔;
+//////////////////////sigmoid function////////////////////////
+double sigmoid_functions(double x, int function_type){
+	if (function_type == 1){
+		return -0.5 * tanh(x) + 0.5;
+	}
+	else if (function_type == 2){
+		return -atan(x) / PI + 0.5;
+	}
+	else if (function_type == 3){
+		return -0.5 * x / sqrt(1 + x*x) + 0.5;
+	}
+	else if (function_type == 4){
+		return -0.5 * x / (1 + abs(x)) + 0.5;
+	}
+	else if (function_type == 5){
+		return 1 / (1 + exp(-x));
+	}
+	else if (function_type == 6){
+		return -atan(sinh(x)) / PI + 0.5;
+	}
+	else{
+		return 0;
+	}
+	
+}
+/////////////////////////////////////////////////////////
+
+// 전역 변수로 초기화 상태를 추적
+static bool params_initialized = false;
 
 void GMS_friction(double qdotdes, double &friction_torque) {
-    // �븿�닔 �떆�옉 �떆 friction_torque 珥덇린�솕
-    friction_torque = 0;
-
-    int N = 12;
-    // double k_opt[12] = {27918.2099063506, 27918.2114986032, 27918.2114893848, 27918.2124468587, 27918.2139948123, 27918.2156108475, 27918.2139913077, 27918.2124096552, 27918.212416005, 1141452.61311876, 28053.3165531205, 1303464.25814965};
-
-	// double alpha_opt[12] = {0.0140792890679116, 0.0572528102734696, 0.0572528066850993, 0.0140792889142508, 0.0572528077023147, 0.0140792885720547, 0.0140792898955194, 0.057252808397232, 0.0407344224689363, 0.0119868930504995, 0.854479101852907, 0.0119868930949691};
-	// double C_opt = 10.9834;
-	// double Fs = 14.2153;
-	// double Fc = 12.9389;
-	// double vs = 0.0002;
-	// double sigma_opt = 42.9204;
-	// double k_opt[12] = {10864.4981169525, 255946.337508348, 5358.61846628718, 8521.54330238144, 12226.1184337744, 5317.80984723001, 5482.69851411415, 5317.809847222, 5792.26304968909, 5317.809847222, 5327.21815007195, 5317.809847222};
-    // double alpha_opt[12] = {0.0617891128805635, 0.275569529121443, 0.0253912332602835, 0.0641477183062394, 0.0226653264437337, 0.0199929711739063, 0.012487357230447, 0.281386687643029, 0.0720593102642443, 0.0309771546691873, 0.0146741386208741, 0.0303694403235407};
-	//ouble C_opt =  9.3593;
-	// double Fs = 14.2153;
-	// double Fc = 12.9389;
-	// double vs = 0.0002;
-	// double sigma_opt = 42.9204;
-	//double k_opt[12] = {10888.2725255115, 342731.64421358, 5714.58673959759, 8751.52680196208, 9548.11184497022, 3202.73110165654, 6119.42415663208, 3864.28688129092, 100835.040665468, 4940.56713878274, 4479.5852236283, 4746.98089674031};
-	//double alpha_opt[12] = {0.0350572514687255, 0.276258619901774, 0.0699630908826632, 0.0889833734956643, 0.0233291676452308, 0.0325846904159466, 0.0253456347872363, 0.280531797892668, 0.0477475626555615, 0.0200208660414608, 0.0119052206767593, 0.0173292659500855};
-	//ouble C_opt = 14546.4614;
-	//double Fs = 14.2153;
-	//double Fc = 12.9389;
-	//double vs = 0.0002;
-	//double sigma_opt = 42.9204;
-	//stribeck,v=0.0008
-	double k_opt[12] = {177622.928544251, 44660.6234869604, 408487.823480988, 2113.37547445184, 425610.933168765, 16783.7073679804, 1433294.23402738, 770582.341157389, 258003.323607, 1189689.73147036, 434197.962372017, 13125.0497364916};
-	double alpha_opt[12] = {0.136873837388196, 0.0835560477105503, 0.00747718305579766, 0.126738956508169, 0.0545629481476721, 0.177542791292639, 0.018442480552487, 0.0153304490558945, 0.00594541318346043, 0.00280037487231405, 0.0038631523629545, 0.0534922051009204};
-	double C_opt = 8351.7184;
-	double Fs = 15;
-	double Fc = 14.4387;
-	double vs = 0.0003;
-	double sigma_opt = 38.5725;
-
-    double dt = 0.00025; // �떆媛� 媛꾧꺽
-	double t_s = 21.4256;
-	double t_sc = 0.81609;
-	double t_v = 100.3774;
-	double t_nlv = -20.9042;
-	double Kv = 111;
-	double delt = 9;
-	double v = qdotdes;
-	double s_v= t_s+t_sc*atan(v*delt);
-	double f_v= t_v*v+t_nlv*v*v*atan(v*Kv);
-    // Stribeck 留덉같�젰 怨꾩궛
-    // double s_v = Fc + (Fs - Fc) * exp(-pow(qdotdes / vs, 2));
-
-
+    // 파라미터를 한 번만 초기화
+    if (!params_initialized) {
+        init_gms_params();
+        params_initialized = true;
+    }
     
+    const int N = 8;
+    const double dt = 0.00025;
+    double s_v;
+    
+    // Initialize friction torque
+    friction_torque = 0.0;
 
-    for (int n = 0; n < N; n++) {
-        double dz = 0.0; // �긽�깭 蹂��솕�웾 珥덇린�솕
-
-		// ���냽 �쁺�뿭: �뒪�떛�궧 諛� �봽由ъ뒳�씪�씠�뵫
-		if (fabs(z[n]) < alpha_opt[n] * s_v / k_opt[n] && fabs(qdotdes) < 1e-3*5) {
-			dz = qdotdes;  // �뒪�떛�궧 �긽�깭�뿉�꽌�뒗 �냽�룄�뿉 �쓽�빐 �긽�깭媛� 蹂��븿
-		} else {
-			dz = (C_opt * alpha_opt[n] / k_opt[n]) * ((qdotdes > 0 ? 1 : -1) - z[n] / (alpha_opt[n] * s_v / k_opt[n]));
-		}
-        
-
-        // Maxwell �슂�냼 �긽�깭 蹂��닔 �뾽�뜲�씠�듃
-        z[n] = z[n] + dz * dt;
-
-        // 留덉같 �넗�겕 怨꾩궛
-        friction_torque += k_opt[n] * z[n] + alpha_opt[n] * dz;
+    // Calculate Stribeck curve
+    if (qdotdes >= 0) {
+        s_v = gms_params.F_c_p + (gms_params.F_s_p - gms_params.F_c_p) * 
+              exp(-pow(qdotdes / gms_params.F_v_p, gms_params.delta_p));
+    } else {
+        s_v = gms_params.F_c_n + (gms_params.F_s_n - gms_params.F_c_n) * 
+              exp(-pow(qdotdes / gms_params.F_v_n, gms_params.delta_n));
     }
 
-    // �젏�꽦 留덉같�젰 異붽� (怨좎냽 �쁺�뿭�뿉�꽌�룄 �쟻�슜)
-    // double viscous_friction = sigma_opt * qdotdes;
-	friction_torque += f_v;
+    // Ensure N doesn't exceed array bounds
+    if (N > N_MAXWELL) {
+        std::cerr << "N exceeds maximum array size" << std::endl;
+        return;
+    }
 
+    for (int n = 0; n < N; n++) {
+        double dz = 0.0;
+        double Di = gms_params.alpha[n] * s_v / gms_params.k[n];
+        double x1i = gms_params.gamma1 * (fabs(z[n]) - Di) / Di;
+        double x2i = gms_params.gamma2 * (fabs(qdotdes) - 0.004) / 0.004;
+        double wai = sigmoid_functions(x1i, 1) * sigmoid_functions(x2i, 1);
+        double wbi = 1.0 - wai;
+
+        // State update
+        if (fabs(z[n]) < Di && fabs(qdotdes) < 0.004) {
+            dz = qdotdes;  // Sticking state
+        } else {
+            dz = qdotdes * wai + wbi * (gms_params.C * gms_params.alpha[n] / gms_params.k[n]) * 
+                 ((qdotdes > 0 ? 1.0 : -1.0) - z[n] / Di);
+        }
+
+        // Update Maxwell element state
+        z[n] += dz * dt;
+
+        // Accumulate friction torque
+        friction_torque += gms_params.k[n] * z[n] + gms_params.sigma[n] * dz;
+    }
+
+    // Add velocity-dependent friction
+    friction_torque += (qdotdes >= 0) ? gms_params.sigma_2_p * qdotdes : gms_params.sigma_2_n * qdotdes;
 }
 
 double kp =  2500;
@@ -580,7 +719,7 @@ void LowPassDerivative(const double & input_prev, const double& input_present, c
 
 
 
-double amplitude=2 ;
+double amplitude=1 ;
 int cycle_count = 0;
 const int NUM_STEPS = 6;
 const double MIN_AMP = 0.001;
@@ -623,7 +762,7 @@ int ctr_traj = 0;
 bool gen = true;
 double qprev = 0;
 double last_increase_time = 0;
-double MAX_AMPLITUDE = 10.0;  // 최대 amplitude 값 설정 
+double MAX_AMPLITUDE = 10.0;  // 최대 amplitude 값 설정
 double MIN_AMPLITUDE = 5.0;
 double motion_number;
 double prev_cycle = 0;
@@ -689,11 +828,15 @@ int compute() {
 
 				// LowPassDerivative(qprev,q[i], qdot[i], fc, qdotdes[i]);
 				// generate trajectory 
-				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
+
+				generate_sin_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], motion_time);
 //////////////////////////////////static test///////////////////////////////////////
- 				generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
-				pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
+ 				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
+				GMS_friction(qdotdes[i], friction_torque[i]);
+				pid_control_friction(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i], friction_torque[i]);
+				// pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
 				control_signal = computed_torque[i];
+				// control_signal = friction_torque[i];
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 				// control_signal =(fc-amplitude)*sin(PI2*f*gt);
 				// control_signal =amplitude;
@@ -716,7 +859,7 @@ int compute() {
  //////////////////////////////////////////dynamic test/////////////////////////////////////////////               
                 // control_signal = amplitude * sin(PI2 * f * gt);  // 기본 사인파 신호 생성
                 
-                // // 주기 체크 및 amplitude 증가 로직 
+                // // 주기 체크 및 amplitude 증가 로직
                 // if (gt >= (2.0/f)) {  // 첫 주기 이후부터 체크
                 //     double current_cycle = floor(gt * f / 2.0) * (2.0/f);
                 //     if (current_cycle > prev_cycle) {  // 새로운 주기 시작
@@ -1049,7 +1192,7 @@ void save_run(void *arg)
                 SAVE_MOVE_BUFFER = false;
                 WRITE_MOVE_BUFFER = false;
 				printf("save_run\n");
-				extract_data(percent_extract);
+				// extract_data(percent_extract);
 
 
 

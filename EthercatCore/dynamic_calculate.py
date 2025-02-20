@@ -29,9 +29,9 @@ w = fc / (fs / 2)
 b, a = butter(4, w, 'low')
 position_filtered = filtfilt(b, a, position)
 dt = 0.00025
-N = 12  # number of bristles
+N = 8  # number of bristles
 
-downsample_factor = 8
+downsample_factor = 4
 position_filtered = position_filtered[::downsample_factor]
 time = time[::downsample_factor]
 torque_measured = torque_measured[::downsample_factor]
@@ -72,7 +72,7 @@ s2n = static_params["sigma_2_n"]
 T_dyn = len(velocity)
 s_v_array = np.zeros(T_dyn)
 sign_v = np.sign(velocity)
-cond2_array = (np.abs(velocity) < 0.0041)  # Boolean array
+cond2_array = (np.abs(velocity) < 0.002)  # Boolean array
 
 for t in range(T_dyn):
     if velocity[t] > 0:
@@ -85,14 +85,16 @@ for t in range(T_dyn):
 # -------------------------------
 def gms_model(p, velocity, s_v_array, sign_v, cond2_array, dt, N):
     """
-    파라미터 p: 길이 2N+1 벡터
+    파라미터 p: 길이 3N+1 벡터
       - p[0:N] : k (스티프니스)
       - p[N:2N] : beta (alpha를 위한 자유변수, alpha = softmax(beta))
-      - p[2N] : C
+      - p[2N:3N] : sigma (댐핑 계수)
+      - p[3N] : C
     """
     k = p[0:N]
     beta = p[N:2*N]
-    C = 300
+    sigma = p[2*N:3*N]  # 새로 추가된 sigma 파라미터
+    C = p[3*N]
     exp_beta = np.exp(beta)
     alpha = exp_beta / np.sum(exp_beta)
     
@@ -115,7 +117,7 @@ def gms_model(p, velocity, s_v_array, sign_v, cond2_array, dt, N):
                 else:
                     dz = (alpha[i] * C)/k[i]*(np.sign(velocity[t]) - z[t-1, i] / Di)
                 z[t, i] = z[t-1, i] + dz * dt
-            F_t += k[i] * z[t, i] + alpha[i] * dz
+            F_t += k[i] * z[t, i] + sigma[i]*dz
         if velocity[t] > 0:
             F_t += s2p * velocity[t]
         else:
@@ -131,11 +133,12 @@ def residual_dyn(p, velocity, s_v_array, sign_v, cond2_array, dt, N, torque_meas
 # 동적 데이터에 대한 최적화 (전체 파라미터)
 # -------------------------------
 # 파라미터 초기 추정치 설정
-# p = [k (N개), beta (N개), C (1개)]
+# p = [k (N개), beta (N개), sigma (N개), C (1개)]
 p0_dyn = np.concatenate([
-    0.006 * np.ones(N)*1e7,         # 초기 k
-    -np.log(N) * np.ones(N),  # beta 초기값 -> alpha = exp(-log(N))/sum(exp(-log(N))) = 1/N
-    np.array([300.0])         # C 초기값
+    np.array([4.5959, 0.9490, 0.2289, 0.1332, 0.0341, 0.0095, 0.0108, 0.0172]) * 1e5,  # 초기 k
+    -np.log(N) * np.ones(N),        # beta 초기값
+    0.001 * np.ones(N),             # 초기 sigma 값 추가
+    np.array([300.0])               # C 초기값
 ])
 
 # least_squares 최적화 수행 (제곱 오차 최소화)
@@ -143,21 +146,23 @@ res_dyn = least_squares(
     residual_dyn,
     p0_dyn,
     args=(velocity, s_v_array, sign_v, cond2_array, dt, N, torque_measured),
-    bounds=(np.concatenate([0.001*np.ones(N), -np.inf*np.ones(N), [0.0]]),
-            np.concatenate([np.inf*np.ones(N), np.inf*np.ones(N), [1e6]])),
+    bounds=(np.concatenate([0.001*np.ones(N), -np.inf*np.ones(N), np.zeros(N), [0.0]]),
+            np.concatenate([np.inf*np.ones(N), np.inf*np.ones(N), np.inf*np.ones(N), [1e6]])),
     xtol=1e-6, ftol=1e-6, verbose=2
 )
 
 p_opt = res_dyn.x
 k_opt = p_opt[0:N]
 beta_opt = p_opt[N:2*N]
-C_opt = p_opt[2*N]
+sigma_opt = p_opt[2*N:3*N]  # 최적화된 sigma 값
+C_opt = p_opt[3*N]
 exp_beta = np.exp(beta_opt)
 alpha_opt = exp_beta / np.sum(exp_beta)
 
 print("Dynamic data 최적화 완료!")
 print("최적의 k:", k_opt)
 print("최적의 alpha:", alpha_opt)
+print("최적의 sigma:", sigma_opt)
 print("최적의 C:", C_opt)
 
 # -------------------------------
@@ -166,7 +171,7 @@ print("최적의 C:", C_opt)
 T_slide = len(slide_velocity)
 s_v_array_slide = np.zeros(T_slide)
 sign_v_slide = np.sign(slide_velocity)
-cond2_array_slide = (np.abs(slide_velocity) < 0.0041)
+cond2_array_slide = (np.abs(slide_velocity) < 0.004)
 
 for t in range(T_slide):
     if slide_velocity[t] > 0:
@@ -177,7 +182,7 @@ for t in range(T_slide):
 # -------------------------------
 # GMS 모델 함수 (Slide data, k와 alpha는 고정)
 # -------------------------------
-def gms_model_slide(C, fixed_k, fixed_alpha, velocity, s_v_array, sign_v, cond2_array, dt, N):
+def gms_model_slide(C, fixed_k, fixed_alpha,fixed_sigma, velocity, s_v_array, sign_v, cond2_array, dt, N):
     T = len(velocity)
     z = np.zeros((T, N))
     F_pred = np.zeros(T)
@@ -197,7 +202,7 @@ def gms_model_slide(C, fixed_k, fixed_alpha, velocity, s_v_array, sign_v, cond2_
                 else:
                     dz = (fixed_alpha[i] * C)/fixed_k[i]*(np.sign(velocity[t]) - z[t-1, i] / Di)
                 z[t, i] = z[t-1, i] + dz * dt
-            F_t += fixed_k[i] * z[t, i] + fixed_alpha[i] * dz
+            F_t += fixed_k[i] * z[t, i] + fixed_sigma[i] * dz
         if velocity[t] > 0:
             F_t += s2p * velocity[t]
         else:
@@ -205,8 +210,8 @@ def gms_model_slide(C, fixed_k, fixed_alpha, velocity, s_v_array, sign_v, cond2_
         F_pred[t] = F_t
     return F_pred
 
-def residual_slide(C, fixed_k, fixed_alpha, velocity, s_v_array, sign_v, cond2_array, dt, N, slide_torque_measured):
-    F_pred = gms_model_slide(C, fixed_k, fixed_alpha, velocity, s_v_array, sign_v, cond2_array, dt, N)
+def residual_slide(C, fixed_k, fixed_alpha,fixed_sigma, velocity, s_v_array, sign_v, cond2_array, dt, N, slide_torque_measured):
+    F_pred = gms_model_slide(C, fixed_k, fixed_alpha,fixed_sigma, velocity, s_v_array, sign_v, cond2_array, dt, N)
     return F_pred - slide_torque_measured
 
 # -------------------------------
@@ -218,7 +223,7 @@ C0 = np.array([C_opt])  # 초기값은 동적 데이터 최적화 결과 사용
 res_slide = least_squares(
     residual_slide,
     C0,
-    args=(k_opt, alpha_opt, slide_velocity, s_v_array_slide, sign_v_slide, cond2_array_slide, dt, N, slide_torque_measured),
+    args=(k_opt, alpha_opt,sigma_opt, slide_velocity, s_v_array_slide, sign_v_slide, cond2_array_slide, dt, N, slide_torque_measured),
     bounds=([0.0], [1e5]),
     xtol=1e-4, ftol=1e-4, verbose=2
 )
@@ -240,7 +245,7 @@ nrmse = (rmse_val / (np.max(torque_measured) - np.min(torque_measured))) * 100
 print(f"Dynamic Data R-squared: {r_squared:.2f}%")
 print(f"Dynamic Data NRMSE: {nrmse:.2f}%")
 
-plt.figure(figsize=(12, 6))
+plt.figure(figsize=(5, 3))
 plt.plot(position, torque_measured, label='Measured Torque',marker='o',markersize=2)
 plt.plot(position, F_predicted_dyn_opt, label='Predicted Torque',marker='*',markersize=2)
 plt.title(f'GMS Model Prediction (Dynamic Data, R²: {r_squared:.2f}%)')
@@ -250,8 +255,8 @@ plt.legend()
 plt.show()
 
 # Slide data 결과 그래프
-F_predicted_slide_opt = gms_model_slide(C_opt_slide, k_opt, alpha_opt, slide_velocity, s_v_array_slide, sign_v_slide, cond2_array_slide, dt, N)
-plt.figure(figsize=(10, 6))
+F_predicted_slide_opt = gms_model_slide(C_opt_slide, k_opt, alpha_opt, sigma_opt, slide_velocity, s_v_array_slide, sign_v_slide, cond2_array_slide, dt, N)
+plt.figure(figsize=(5, 3))
 plt.plot(slide_velocity, slide_torque_measured, 'b.', label='Measured', markersize=2)
 plt.plot(slide_velocity, F_predicted_slide_opt, 'r*', label='Predicted', markersize=2)
 plt.title('Velocity-Torque Characteristic (Slide Data)')
@@ -267,8 +272,9 @@ with open('friction_parameters.json', 'r') as f:
 
 # 기존 파라미터에 새로운 GMS 파라미터 추가
 existing_params["FricParameter"][0].update({
-    "k": k_opt.tolist(),  # numpy 배열을 리스트로 변환
-    "alpha": alpha_opt.tolist(),  # numpy 배열을 리스트로 변환
+    "k": k_opt.tolist(),
+    "alpha": alpha_opt.tolist(),
+    "sigma": sigma_opt.tolist(),
     "C": float(C_opt_slide)
 })
 
