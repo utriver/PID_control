@@ -338,18 +338,6 @@ void ethercat2physical()
 			qdot[i] = (double) ActualVel[i]*360/7929856*deg2rad;
 			core_tor[i] = (double) ActualTor[i]*Cnt2Nm;
 			break;
-		// case 1:
-		// 	temp_q = (double) (ActualPos[i] - ZeroPos[i])*360;
-		// 	temp_q /= EncoderResolution;
-		// 	temp_q /= GearRatio;
-		// 	q[i] = temp_q*deg2rad;
-		// 	break;
-		// case 2:
-		// 	temp_q = (double) (ActualPos[i] - ZeroPos[i])*360;
-		// 	temp_q /= EncoderResolution;
-		// 	temp_q /= GearRatio;
-		// 	q[i] = temp_q*deg2rad;
-		// 	break;
 		}
 	}
 	
@@ -416,82 +404,13 @@ void Lugre_friction(double qdotdes, double &friction_torque)
 int gms_counter=0;
 #define N_MAXWELL 8
 double z[N_MAXWELL] = {0};
-// void GMS_friction(double qdotdes, double &friction_torque)
-// {
-//     // �븿�닔 �떆�옉�떆 friction_torque 珥덇린�솕
-//     friction_torque = 0;
 
-//     int N = 8;
-//     double k_opt[8] = {143921.11506902, 39798223.8440106, 9363611.67828457, 67095.0889746429, 2558.20756818028, 27105750.4476824, 582985.183877143, 21357.4720391935};
-//     double alpha_opt[8] = {0.277393295043814, 0.00185094082631222, 0.00365359131352696, 0.0100222860136948, 0.000445794147046117, 0.00290450020743669, 0.165052094736506, 0.100926088108215};
-//     double C_opt = 27.5392; // 留덉같 吏��뿰 �긽�닔 //�쟾泥� �겕湲곌� 而ㅼ쭚
-//     double vs_opt =0.95987; // �뒪�듃由щ깹 �냽�룄
-//     double sigma_opt = 453.9787; // �젏�꽦 怨꾩닔 //怨≪꽑�쓽 理쒕�媛믪씠 而ㅼ쭚
-//     double Fs = 21.4256; // �젙�쟻 留덉같�젰
-//     double Fc = 21.4256 - 0.81609; // 荑⑤” 留덉같�젰
-//     double dt = 0.00025;
-//     double s_v = Fc+(Fs-Fc)*exp(-pow(qdotdes/vs_opt,2));
-
-//     for(int n = 0; n < N; n++) {
-//         // �뒳�씪�씠�뵫 �긽�깭 諛� �뒪�떛�궧 �긽�깭 泥섎━
-//         if(gms_counter == 0) {
-//             z[n] = 0;
-//         }
-//         if(fabs(z[n]) < alpha_opt[n] * s_v/k_opt[n] && fabs(qdotdes) < 1e-4) {
-//             // �뒪�떛�궧 �긽�깭
-//             dz = qdotdes;
-// 			z[n] = z[n] + dz * dt;
-// 			friction_torque = friction_torque + k_opt[n] * z[n] + alpha_opt[n]*dz;
-//     }
-//         }
-//         else {
-//             // �뒳�씪�씠�뵫 �긽�깭
-//             dz = (C_opt * alpha_opt[n] / k_opt[n]) * ((qdotdes > 0 ? 1 : -1) - z[n] / (alpha_opt[n]*s_v/k_opt[n]));
-//         }
-//         // Maxwell �슂�냼 �긽�깭 蹂��닔 �뾽�뜲�씠�듃
-        
-       
-        
-        
-//     // �젏�꽦 留덉같�젰 異붽�
-//     friction_torque += sigma_opt * qdotdes;
-// }
-//  k = [66303.2909367738 66269.1682674476 66269.1063012516 2218793.36418749 2218793.32895251 317144.651565354 76718.3549064896 79123.4139371207 72558.6517033946 26765.7477754477 69870.0545341115 69838.745372707] ;      % �뒪�봽留� 媛뺤꽦 怨꾩닔;
-//     alpha = [1.06492775941585 0.336883063963703 0.311386740179736 0.0209920389271211 0.0209920407778812 0.000255451067173599 0.00544452340345758 0.0130509874191778 0.00293665997264368 0.000255451092472014 0.000255450936089651 0.000255450906153214] ; % Maxwell �슂�냼 媛�以묒튂;
-//     C = 9.3593 ;     % 留덉같 吏��뿰 �긽�닔;
-//     Fs = 7.1638 ;    % �젙�쟻 留덉같�젰 (怨좎젙媛�);
-//     Fc = 363.4886 ;     % 荑⑤” 留덉같�젰 (怨좎젙媛�);
-//     vs = 7.3514 ;     % �뒪�듃由щ깹 �냽�룄;
-//     sigma = 38.4811 ; % �젏�꽦 怨꾩닔;
 
 void GMS_friction(double qdotdes, double &friction_torque) {
-    // �븿�닔 �떆�옉 �떆 friction_torque 珥덇린�솕
     friction_torque = 0;
 
     int N = 12;
-    // double k_opt[12] = {27918.2099063506, 27918.2114986032, 27918.2114893848, 27918.2124468587, 27918.2139948123, 27918.2156108475, 27918.2139913077, 27918.2124096552, 27918.212416005, 1141452.61311876, 28053.3165531205, 1303464.25814965};
 
-	// double alpha_opt[12] = {0.0140792890679116, 0.0572528102734696, 0.0572528066850993, 0.0140792889142508, 0.0572528077023147, 0.0140792885720547, 0.0140792898955194, 0.057252808397232, 0.0407344224689363, 0.0119868930504995, 0.854479101852907, 0.0119868930949691};
-	// double C_opt = 10.9834;
-	// double Fs = 14.2153;
-	// double Fc = 12.9389;
-	// double vs = 0.0002;
-	// double sigma_opt = 42.9204;
-	// double k_opt[12] = {10864.4981169525, 255946.337508348, 5358.61846628718, 8521.54330238144, 12226.1184337744, 5317.80984723001, 5482.69851411415, 5317.809847222, 5792.26304968909, 5317.809847222, 5327.21815007195, 5317.809847222};
-    // double alpha_opt[12] = {0.0617891128805635, 0.275569529121443, 0.0253912332602835, 0.0641477183062394, 0.0226653264437337, 0.0199929711739063, 0.012487357230447, 0.281386687643029, 0.0720593102642443, 0.0309771546691873, 0.0146741386208741, 0.0303694403235407};
-	//ouble C_opt =  9.3593;
-	// double Fs = 14.2153;
-	// double Fc = 12.9389;
-	// double vs = 0.0002;
-	// double sigma_opt = 42.9204;
-	//double k_opt[12] = {10888.2725255115, 342731.64421358, 5714.58673959759, 8751.52680196208, 9548.11184497022, 3202.73110165654, 6119.42415663208, 3864.28688129092, 100835.040665468, 4940.56713878274, 4479.5852236283, 4746.98089674031};
-	//double alpha_opt[12] = {0.0350572514687255, 0.276258619901774, 0.0699630908826632, 0.0889833734956643, 0.0233291676452308, 0.0325846904159466, 0.0253456347872363, 0.280531797892668, 0.0477475626555615, 0.0200208660414608, 0.0119052206767593, 0.0173292659500855};
-	//ouble C_opt = 14546.4614;
-	//double Fs = 14.2153;
-	//double Fc = 12.9389;
-	//double vs = 0.0002;
-	//double sigma_opt = 42.9204;
-	//stribeck,v=0.0008
 	double k_opt[12] = {177622.928544251, 44660.6234869604, 408487.823480988, 2113.37547445184, 425610.933168765, 16783.7073679804, 1433294.23402738, 770582.341157389, 258003.323607, 1189689.73147036, 434197.962372017, 13125.0497364916};
 	double alpha_opt[12] = {0.136873837388196, 0.0835560477105503, 0.00747718305579766, 0.126738956508169, 0.0545629481476721, 0.177542791292639, 0.018442480552487, 0.0153304490558945, 0.00594541318346043, 0.00280037487231405, 0.0038631523629545, 0.0534922051009204};
 	double C_opt = 8351.7184;
@@ -510,11 +429,8 @@ void GMS_friction(double qdotdes, double &friction_torque) {
 	double v = qdotdes;
 	double s_v= t_s+t_sc*atan(v*delt);
 	double f_v= t_v*v+t_nlv*v*v*atan(v*Kv);
-    // Stribeck 留덉같�젰 怨꾩궛
-    // double s_v = Fc + (Fs - Fc) * exp(-pow(qdotdes / vs, 2));
 
 
-    
 
     for (int n = 0; n < N; n++) {
         double dz = 0.0; // �긽�깭 蹂��솕�웾 珥덇린�솕
@@ -571,11 +487,11 @@ void pid_control(double qdes, double q, double qdot, double qdotdes, double &com
 
 
 void LowPassDerivative(const double & input_prev, const double& input_present, const double& output_prev, const double& cutoff , double& output){
-//	double _delT=0.001;
+
 	double _delT=0.00025;
 	double ALPHA = ( (2 * cutoff * _delT) / (2 + cutoff*_delT));
 	output = ALPHA * ( (input_present - input_prev)/_delT) + (1 - ALPHA) * output_prev;
-	//cout<<"input_present:"<<input_present<<endl<<"input_prev:"<<input_prev<<endl;
+
 }
 
 
@@ -585,25 +501,7 @@ int cycle_count = 0;
 const int NUM_STEPS = 6;
 const double MIN_AMP = 0.001;
 const double MAX_AMP = 0.002;
-// void generate_sin_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
-// 	double omega = 2 * PI * f;
-	
-// 	// �븳 二쇨린媛� �걹�궗�뒗吏� �솗�씤
-// 	if(motion_time >= (1.0/f)) {
-// 		cycle_count++;
-// 		motion_time = 0;
-		
-// 		// �옄�뿰吏��닔 �븿�닔 �삎�깭濡� amplitude 利앷�
-// 		if(cycle_count < NUM_STEPS) {
-// 			double t = (double)cycle_count / (NUM_STEPS - 1);
-// 			amplitude = MIN_AMP + (MAX_AMP - MIN_AMP) * (exp(t) - 1) / (exp(1) - 1);
-// 		}
-// 	}
 
-// 	qdes = amplitude * (1-cos(omega* motion_time));
-// 	qdotdes = amplitude * omega * sin(omega * motion_time);
-// 	qdotdotdes = amplitude * omega * omega * cos(omega * motion_time);
-// }
 void generate_sin_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
 	double omega = 2 * PI * f;
 	qdes = amplitude * (1-cos(omega* motion_time) );
@@ -623,7 +521,7 @@ int ctr_traj = 0;
 bool gen = true;
 double qprev = 0;
 double last_increase_time = 0;
-double MAX_AMPLITUDE = 10.0;  // 최대 amplitude 값 설정 
+double MAX_AMPLITUDE = 10.0;  // 최대 amplitude 값 설정
 double MIN_AMPLITUDE = 5.0;
 double motion_number;
 double prev_cycle = 0;
@@ -660,8 +558,7 @@ int compute() {
 					gen = false;
 					qdes[i] = q_last;
 					ctr_traj = _trajectory.max_traj_size+1000000;
-					
-					// _dataLogger.deactivate();
+
 				}	
 				
 					ctr_traj++; //=motion_time
@@ -673,69 +570,18 @@ int compute() {
         for (int i = 0; i < NUM_AXIS; ++i) {
             if (system_ready) {
             	_time += period;
-				//1. Assume that actual position and velocity (q, qdot) unit is changed to radian and radian/sec: DONE
-				//2. Assume that actual torque unit is changed to Nm //DONE
-				//3. generate desired trajectory (qdes, qdotdes, qdotdotdes) in radian, radian/sec, and radian/sec^2
-				//4. Implement PID control for torque control\
-				//4.1: error: qdes - q, qdotdes - qdot
-				//4.2: PD: Kp * error - Kd*qdot
-				//4.3: PID: Kp * error + Ki * integral_error + Kd * error_dot
-				//4.4: 
 
 				if(initflag){
 					ZeroPos[i] = ActualPos[i];
 					if(ActualPos[0] != 0) initflag = false;					
 				}
 
-				// LowPassDerivative(qprev,q[i], qdot[i], fc, qdotdes[i]);
-				// generate trajectory 
-				// generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
-//////////////////////////////////static test///////////////////////////////////////
  				generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
 				pid_control(qdes[i], q[i], qdot[i], qdotdes[i], computed_torque[i]);
 				control_signal = computed_torque[i];
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-				// control_signal =(fc-amplitude)*sin(PI2*f*gt);
-				// control_signal =amplitude;
 
-				// 3주기마다 amplitude 증가코드
-				// static double prev_cycle = 0;
-				// if (gt >= (2.0/f) && gt - prev_cycle >= (2.0/f)) {
-				// 	if (amplitude < MAX_AMPLITUDE) {
-				// 		amplitude += 2.0;
-				// 		prev_cycle = gt;
-				// 		printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
-				// 		control_signal = amplitude*sin(PI2*f*fmod(gt, 2.0/f));
-
-				// 	}else if(amplitude == MAX_AMPLITUDE){
-				// 		control_signal = 0;
-				// 	}
-
-				// }
-				 // 기본 사인파 신호 생성
- //////////////////////////////////////////dynamic test/////////////////////////////////////////////               
-                // control_signal = amplitude * sin(PI2 * f * gt);  // 기본 사인파 신호 생성
-                
-                // // 주기 체크 및 amplitude 증가 로직 
-                // if (gt >= (2.0/f)) {  // 첫 주기 이후부터 체크
-                //     double current_cycle = floor(gt * f / 2.0) * (2.0/f);
-                //     if (current_cycle > prev_cycle) {  // 새로운 주기 시작
-                //         if (amplitude < MAX_AMPLITUDE && dynamic_run==1) {
-                //             amplitude += 2.0;
-                //             printf("Amplitude increased to: %f at time %f\n", amplitude, gt);
-                //         } else if (amplitude == MAX_AMPLITUDE) {
-                //             amplitude = 0;  // MAX_AMPLITUDE 도달 시 정지
-                //             dynamic_run = 0;
-                //         }
-                //         prev_cycle = current_cycle;
-                //     }
-                // }
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-				// GMS_friction(qdotdes[i], friction_torque[i]);
-				// control_signal = friction_torque[i];
 				TargetTor[i] = physical2ethercat(control_signal);
-				// TargetTor[i] = physical2ethercat(control_signal);
-				// qdes[i] = _trajectory.gen_lspb_trajectory(true);
+
 				motion_time += period;
 				qprev=q[i];
             } else {
@@ -799,10 +645,10 @@ int current_count = 0;
 void extract_data(double &percent_extract)
 
 {
-	// �젅�� 寃쎈줈 �궗�슜
-	const char* base_path = "/home/user/release/";  // �떎�젣 �꽕移� 寃쎈줈濡� �닔�젙
-	char filepath1[256], filepath2[256], filepath3[256];
+	const char* base_path = "/home/user/release/";
+	char filepath[256], filepath1[256], filepath2[256], filepath3[256];
 	
+	snprintf(filepath, sizeof(filepath), "%sdata_csvFile/target_vel.csv", base_path);
 	snprintf(filepath1, sizeof(filepath1), "%sfriction_data/RT_test/RT-data-1.csv", base_path);
 	snprintf(filepath2, sizeof(filepath2), "%sfriction_data/RT_test/RT-data-2.csv", base_path);
 	
@@ -810,103 +656,88 @@ void extract_data(double &percent_extract)
 	FILE *fp2 = fopen(filepath2, "r");
 	
 	if (fp1 == NULL || fp2 == NULL) {
-		printf("�뙆�씪�쓣 �뿴 �닔 �뾾�뒿�땲�떎. 寃쎈줈: %s, %s\n", filepath1, filepath2);
+		printf("파일을 열 수 없습니다. 경로: %s, %s\n", filepath1, filepath2);
 		return;
 	}
 
-	// �뙆�씪 �궡�슜 �뵒踰꾧퉭
+	// 데이터 검증을 위해 파일의 첫 5줄을 화면에 출력하여 포맷 확인
 	char line[MAX_LINE_LENGTH];
 	int line_count = 0;
-	printf("�뙆�씪 �궡�슜 �솗�씤 以�...\n");
 	
-	// 泥� 紐� 以� 異쒕젰�븯�뿬 �뜲�씠�꽣 �삎�떇 �솗�씤
 	while (fgets(line, sizeof(line), fp1) && line_count < 5) {
 		printf("Line %d: %s", line_count++, line);
 	}
-	rewind(fp1);  // �뙆�씪 �룷�씤�꽣瑜� �떎�떆 泥섏쓬�쑝濡�
-	rewind(fp2);  // �뙆�씪 �룷�씤�꽣瑜� �떎�떆 泥섏쓬�쑝濡�`
 
+	// 두 파일의 포인터를 파일의 시작으로 되돌려, 실제 데이터 처리 전 상태로 복귀
+	rewind(fp1);
+	rewind(fp2);
+
+	std::vector<double> target_vels;
+	std::ifstream file(filepath);
+	if (!file.is_open()) std::cerr << "Error: cannot open file " << filepath << std::endl;
 	
-	// Define target velocities
-	std::vector<double> target_vels = {
+	std::string vel_line;
+	while (std::getline(file, vel_line)) {
+		std::istringstream linestream(vel_line);
+		std::string token;
+		while (std::getline(linestream, token, ',')) {
+			try {
+				double v = std::stod(token);
+				target_vels.push_back(v);
+			} catch (const std::invalid_argument&) {
+				// 숫자로 변환할 수 없는 토큰은 무시
+			}
+		}
+	}
 
-    0.0030, 0.0119, 0.0212, 0.0311, 0.0414, 0.0522, 0.0636, 0.0756, 0.0882, 0.1014,
-
-    0.1154, 0.1300, 0.1454, 0.1615, 0.1785, 0.1963, 0.2151, 0.2348, 0.2555, 0.2773,
-
-    0.3002, 0.3243, 0.3496, 0.3761, 0.4041, 0.4334, 0.4643, 0.4967, 0.5308, 0.5667,
-
-    0.6043, 0.6439, 0.6855, 0.7292, 0.7752, 0.8235, 0.8743, 0.9277, 0.9837, 1.0427,
-
-    1.1047, 1.1698, 1.2382, 1.3102, 1.3858, 1.4653, 1.5488, 1.6366, 1.7289, 1.8259,
-
-	-0.0030, -0.0119, -0.0212, -0.0311, -0.0414, -0.0522, -0.0636, -0.0756, -0.0882, -0.1014,
-
-	-0.1154, -0.1300, -0.1454, -0.1615, -0.1785, -0.1963, -0.2151, -0.2348, -0.2555, -0.2773,
-
-	-0.3002, -0.3243, -0.3496, -0.3761, -0.4041, -0.4334, -0.4643, -0.4967, -0.5308, -0.5667,
-
-	-0.6043, -0.6439, -0.6855, -0.7292, -0.7752, -0.8235, -0.8743, -0.9277, -0.9837, -1.0427,
-
-	-1.1047, -1.1698, -1.2382, -1.3102, -1.3858, -1.4653, -1.5488, -1.6366, -1.7289, -1.8259
-	};
-
-
-
-	// Create vector of vectors to store matching data for each target velocity
+	// target_vels와 fp1, fp2의 4, 7번째 열 값 쌍을 여러 개 저장할 수 있는 matching_data 2차원 벡터 배열 선언
 	std::vector<std::vector<std::vector<double>>> matching_data(target_vels.size());
 
 	
 	// Process file 1
+	// fgets: 한줄 씩 읽기
 	while (fgets(line, sizeof(line), fp1)) {
-		if (ferror(fp1)) {
-			printf("�뙆�씪 �씫湲� �삤瑜� 諛쒖깮\n");
-			clearerr(fp1);
-			continue;
-		}
+		if (ferror(fp1)) { clearerr(fp1); continue; }
+		auto tokens = split(std::string(line), ','); // 쉼표 기준 토큰 분리
+		if (tokens.size() < 7) continue;
+
+		double vel = std::stod(tokens[4]);
+		vel = round(vel * 10000.0) / 10000.0; // 소수점 넷째 자리로 반올림
 		
-		std::string str_line(line);
-		std::vector<std::string> tokens = split(str_line, ',');
-		if (tokens.size() >= 7) {
-			double vel = std::stod(tokens[4]);
-			vel = round(vel * 10000.0) / 10000.0;  // �냼�닔�젏 4�옄由ш퉴吏� 諛섏삱由�
-			
-			// �뵒踰꾧퉭�쓣 �쐞�븳 異쒕젰 異붽�
-			printf("Reading velocity: %.6f\n", vel);
-			
-			// �뜑 愿����븳 鍮꾧탳 諛⑹떇 �궗�슜
-			for (size_t i = 0; i < target_vels.size(); i++) {
-				// �젙�솗�븳 �씪移� ���떊 洹쇱궗媛� 鍮꾧탳
-				if (fabs(vel - target_vels[i]) < 1e-5) {
-					std::vector<double> row;
-					row.push_back(std::stod(tokens[3]));
-					row.push_back(std::stod(tokens[6]));
-					matching_data[i].push_back(row);
-					printf("Match found for velocity %.6f\n", target_vels[i]);
-					break;
-				}
+		printf("Reading velocity: %.6f\n", vel);
+		for (size_t i = 0; i < target_vels.size(); i++) {
+			if (fabs(vel - target_vels[i]) < 1e-5) {
+				// 4번째(tokens[3])와 7번째(tokens[6]) 열 값 저장
+				matching_data[i].push_back({
+					std::stod(tokens[3]),
+					std::stod(tokens[6])
+				});
+				printf("Match found for velocity %.6f\n", target_vels[i]);
+				break;
 			}
 		}
 	}
 
 	// Process file 2 
+	// fgets: 한줄 씩 읽기
 	while (fgets(line, sizeof(line), fp2)) {
-		std::string str_line(line);
-		std::vector<std::string> tokens = split(str_line, ',');
-		if (tokens.size() >= 7) {
-			double vel = std::stod(tokens[4]);
-			vel = round(vel * 10000.0) / 10000.0;  // �냼�닔�젏 4�옄由ш퉴吏� 諛섏삱由�
-			// Check against each target velocity
-			for (size_t i = 0; i < target_vels.size(); i++) {
-				if (fabs(vel - target_vels[i]) < 1e-5) {
-					std::vector<double> row;
-					row.push_back(std::stod(tokens[3])); // 4th column
-					row.push_back(std::stod(tokens[6])); // 7th column
+		if (ferror(fp2)) { clearerr(fp2); continue; }
+		auto tokens = split(std::string(line), ','); // 쉼표 기준 토큰 분리
+		if (tokens.size() < 7) continue;
 
-					matching_data[i].push_back(row);
-					printf("Match found for velocity %.6f\n", target_vels[i]);
-					break;
-				}
+		double vel = std::stod(tokens[4]);
+		vel = round(vel * 10000.0) / 10000.0; // 소수점 넷째 자리로 반올림
+
+		printf("Reading velocity: %.6f\n", vel);
+		for (size_t i = 0; i < target_vels.size(); i++) {
+			if (fabs(vel - target_vels[i]) < 1e-5) {
+				// 4번째(tokens[3])와 7번째(tokens[6]) 열 값 저장
+				matching_data[i].push_back({
+					std::stod(tokens[3]),
+					std::stod(tokens[6])
+				});
+				printf("Match found for velocity %.6f\n", target_vels[i]);
+				break;
 			}
 		}
 	}
@@ -915,126 +746,62 @@ void extract_data(double &percent_extract)
 	fclose(fp2);
 
 	//mean each part of the data
-	std::vector<double> mean_data_4th;    
-	std::vector<double> mean_data_7th;    
+	// 각 목표 속도마다 matching_data 크기 확인
+	std::vector<double> mean_data_4th, mean_data_7th;
 	mean_data_4th.reserve(target_vels.size());
 	mean_data_7th.reserve(target_vels.size());
 
 	for (size_t i = 0; i < target_vels.size(); i++) {
-		double sum_4th = 0;
-		double sum_7th = 0;
+		double sum_4th = 0, sum_7th = 0;
 		size_t valid_data_count = matching_data[i].size();
 		
-		// �뜲�씠�꽣媛� �뾾�뒗 寃쎌슦 泥섎━
+		// 데이터 없으면 0.0 저장, 경고 출력
 		if (valid_data_count == 0) {
-			mean_data_4th.push_back(0.0);  // �삉�뒗 �떎瑜� 湲곕낯媛�
-			mean_data_7th.push_back(0.0);  // �삉�뒗 �떎瑜� 湲곕낯媛�
+			mean_data_4th.push_back(0.0);
+			mean_data_7th.push_back(0.0);
 			printf("Warning: No data found for velocity %f\n", target_vels[i]);
 			continue;
 		}
-
-		// �뜲�씠�꽣 �빀�궛 �떆 �쑀�슚�꽦 寃��궗
-		for (size_t j = 0; j < valid_data_count; j++) {
-			double val_4th = matching_data[i][j][0];
-			double val_7th = matching_data[i][j][1];
-			
-			if (std::isfinite(val_4th)) {
-				sum_4th += val_4th;
-			} else {
-				printf("Warning: Invalid value in 4th column for velocity %f\n", target_vels[i]);
-				valid_data_count--;
-			}
-			
-			if (std::isfinite(val_7th)) {
-				sum_7th += val_7th;
-			} else {
-				printf("Warning: Invalid value in 7th column for velocity %f\n", target_vels[i]);
-				valid_data_count--;
-			}
+		 // 유효성 검사하며 합산
+		for (auto &row : matching_data[i]) {
+			if (std::isfinite(row[0])) sum_4th += row[0];
+			else { printf("Invalid 4th col at vel %f\n", target_vels[i]); valid_data_count--; }
+			if (std::isfinite(row[1])) sum_7th += row[1];
+			else { printf("Invalid 7th col at vel %f\n", target_vels[i]); valid_data_count--; }
 		}
 
-		// �쑀�슚�븳 �뜲�씠�꽣媛� �엳�뒗 寃쎌슦�뿉留� �룊洹� 怨꾩궛
 		if (valid_data_count > 0) {
 			mean_data_4th.push_back(sum_4th / valid_data_count);
 			mean_data_7th.push_back(sum_7th / valid_data_count);
 		} else {
-			mean_data_4th.push_back(0.0);  // �삉�뒗 �떎瑜� 湲곕낯媛�
-			mean_data_7th.push_back(0.0);  // �삉�뒗 �떎瑜� 湲곕낯媛�
+			mean_data_4th.push_back(0.0);
+			mean_data_7th.push_back(0.0);
 			printf("Warning: No valid data for velocity %f\n", target_vels[i]);
 		}
 	}
 	
-	//뙆씪 옣 떆 쑀슚꽦 寃궗 異붽
-	FILE *fp3 = fopen("/home/user/release/friction_data/RT_test/RT-data-3.csv", "w");
-	if (fp3 == NULL) {
-		printf("Error: Cannot open output file\n");
-		return;
-	}
+	FILE *fp3 = fopen("friction_data/RT_test/RT-data-3.csv", "w");
+	if (!fp3) { printf("Error: Cannot open output file\n"); return; }
+
 	int extract = 0;
 	for (size_t i = 0; i < target_vels.size(); i++) {
 		if (std::isfinite(mean_data_4th[i]) && std::isfinite(mean_data_7th[i])) {
 			fprintf(fp3, "%f,%f\n", mean_data_4th[i], mean_data_7th[i]);
 		} else {
-			fprintf(fp3, "0.0,0.0\n");  // �삉�뒗 �떎瑜� 湲곕낯媛�
+			fprintf(fp3, "0.0,0.0\n");
 			printf("Warning: Invalid mean values for velocity %f\n", target_vels[i]);
 		}
 		extract++;
 		percent_extract = (double)extract / target_vels.size() * 100;
 	}
 	fclose(fp3);
-		exit(1);
 }
-
 
 int filenum1 = 1;
 int filenum2 = 1;
 double percent_ready = 0;
 bool need_processing = false;
-// void static_calculation(void *arg)
-// {
 
-// 	while(run)
-//     {
-//         if (need_processing) {
-//             printf("Data extraction completed: %.2f%%\n", percent_extract);
-
-//             // Python 스크립트 실행
-//             const char* python_cmd = "python3 /home/user/release/friction_Id/static_calculate.py";
-//             int result = system(python_cmd);
-            
-//             if (result == 0) {
-//                 printf("Static calculation completed successfully\n");
-// 				dynamic_id = 1;
-//             } else {
-//                 printf("Error executing static calculation script\n");
-//             }
-//             need_processing = false;
-//         }
-//     }
-	
-// }
-// void dynamic_calculation(void *arg)
-// {
-
-// 	while(run)
-//     {
-//         if (need_processing) {
-
-//             // Python 스크립트 실행
-//             const char* python_cmd = "python3 /home/user/release/friction_Id/gms_calculate_1.py";
-//             int result = system(python_cmd);
-            
-//             if (result == 0) {
-//                 printf("Dynamic calculation completed successfully\n");
-// 				dynamic_id = 0;
-//             } else {
-//                 printf("Error executing dynamic calculation script\n");
-//             }
-//             need_processing = false;
-//         }
-//     }
-	
-// }
 // RT 태스크는 최소한의 작업만 수행
 
 void save_run(void *arg) 
@@ -1050,10 +817,6 @@ void save_run(void *arg)
                 WRITE_MOVE_BUFFER = false;
 				printf("save_run\n");
 				extract_data(percent_extract);
-
-
-
-            
         }
         rt_task_wait_period(NULL);
     }
@@ -1101,49 +864,24 @@ void EthercatCore_run(void *arg)
 		/// TO DO: Main computation routine...
 		compute();
 
-
-		// if(system_ready)
-		// {
-    	// 		// Start of Selection
-    	// 		_dataLogger.updateLoggedData(_time, q, qdot, core_tor, qdes, qdotdes);
-		// 			// Triggering logger saving
-		// 	_logCnt--;
-		// 	if (_logCnt <= 0)
-		// 	{
-		// 		_dataLogger.triggerSaving();
-		// 		_logCnt = LOG_DATA_SAVE_PERIOD; // 10s
-		// 	}
-		// }
-
 		ctrlData.time = gt;
 		for (int i = 0; i < NUM_AXIS; i++)
 		{
 			ctrlData.q[i] = q[i];
-			//ctrlData.ActualPOS[i] = 0;
-			//ctrlData.ActualVel[i] = 0;
 			ctrlData.qdes[i] = qdes[i];
 			ctrlData.qdot[i] = qdot[i];
 			ctrlData.qdotdes[i] = qdotdes[i];
-//			ctrlData.qdotdes[i] = qddot[i];
 			ctrlData.friction_torque[i] = friction_torque[i];
 			ctrlData.coretor[i] = core_tor[i];  //Nm
 			ctrlData.TargetTor[i] = TargetTor[i]; //Ethercat
-			//ctrlData.ActualTor[i] = ActualTor[i];
-			//ctrlData.sensortor[i] =  0 ;
-//			ctrlData.sensortemperature[i] = mech_tor/5;
-			//ctrlData.sensortemperature[i] = 0;
 		}
 		if(system_ready)
 		{
 			if(WRITE_MOVE_BUFFER){
 					_frictionDataLogger.update_rt_buffer(ctrlData);				
 
-			
-//				printf("******* START writing to the buffer *****\n");
-
 				if (_frictionDataLogger.isRTbufferFilled)
 				{
-//					printf("*******Buffer is full. Start saving data *****\n");
 					WRITE_MOVE_BUFFER = false;
 					SAVE_MOVE_BUFFER = true;
 					_frictionDataLogger.isRTbufferFilled = false;
@@ -1184,13 +922,9 @@ void EthercatCore_run(void *arg)
 			if(ethercat_time > max_time)
 				++fault_count;
 		}
-		
-
 	}
-
 }		
 	
-
 
 // Console cycle
 // Note: You have to use rt_printf in Xenomai RT tasks
@@ -1455,15 +1189,9 @@ int main(int argc, char **argv)
 		ki=atof(argv[6]);
 	}
 
-
-
-	// double kp=1, ki=0.1, kd=0.1;
-	
-	// TO DO: Specify the cycle period (cycle_ns) here, or use default value
-//	cycle_ns=1000000; // nanosecond 1kHz
 	cycle_ns=250000; // nanosecond 4kHz
 	period=((double) cycle_ns)/((double) NSEC_PER_SEC);	//period in second unit/
-	// period = 0.00025;
+
 	// Set the demo mode for EtherCAT application
 	demo_mode = DEMO_MODE_TORQUE;
 	if (demo_mode == DEMO_MODE_TORQUE)
@@ -1516,12 +1244,6 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 
-	// printf("trajectory file is loaded\n");
-	// std::cout << "Trajectory Positions:" << std::endl;
-    // for (size_t i = 0; i < _trajectory._qdes_traj_pos.size(); ++i) {
-    //     std::cout << "Position [" << i << "]: " << _trajectory._qdes_traj_pos[i] << std::endl;
-    // }
-
 	// TO DO: Create data socket server
 	datasocket.setPeriod(period);
 
@@ -1564,12 +1286,7 @@ int main(int argc, char **argv)
 	// Must pause here
 	//pause();
 	while (1)
-
 	{
-		
-		
-		
-		
 		usleep(1e5);
 	}
 
