@@ -55,16 +55,12 @@ with open('friction_parameters.json', 'r') as f:
 # JSON 파일에서 파라미터 값 추출
 static_params = friction_params["FricParameter"][0]
 Fcp = static_params["F_c_p"]
-Fsp = static_params["F_s_p"]
-Vsp = static_params["F_v_p"]
-delta_sp = static_params["delta_p"]
-s2p = static_params["sigma_2_p"]
+Fv1p = static_params["F_v1_p"]
+Fv2p = static_params["F_v2_p"]
 
 Fcn = static_params["F_c_n"]
-Fsn = static_params["F_s_n"]
-Vsn = static_params["F_v_n"]
-delta_sn = static_params["delta_n"]
-s2n = static_params["sigma_2_n"]
+Fv1n = static_params["F_v1_n"]
+Fv2n = static_params["F_v2_n"]
 
 # -------------------------------
 # 미리 계산 가능한 값들 (dynamic data)
@@ -76,9 +72,11 @@ cond2_array = (np.abs(velocity) < 0.0041)  # Boolean array
 
 for t in range(T_dyn):
     if velocity[t] > 0:
-        s_v_array[t] = Fcp + (Fsp - Fcp) * np.exp(- (velocity[t] / Vsp) ** delta_sp)
+        # s_v_array[t] = Fcp + Fv1p*(1-np.exp(-abs(velocity[t]/Fv2p)))
+        s_v_array[t] = Fcp
     else:
-        s_v_array[t] = Fcn + (Fsn - Fcn) * np.exp(- (abs(velocity[t]) / Vsn) ** delta_sn)
+        # s_v_array[t] = Fcn + Fv1n*(1-np.exp(-abs(velocity[t]/Fv2n)))
+        s_v_array[t] = Fcn 
 
 # -------------------------------
 # GMS 모델 함수 (동적 데이터)
@@ -117,9 +115,9 @@ def gms_model(p, velocity, s_v_array, sign_v, cond2_array, dt, N):
                 z[t, i] = z[t-1, i] + dz * dt
             F_t += k[i] * z[t, i] + alpha[i] * dz
         if velocity[t] > 0:
-            F_t += s2p * velocity[t]
+            F_t += Fv1p*(1-np.exp(-abs(velocity[t]/Fv2p)))
         else:
-            F_t += s2n * velocity[t]
+            F_t += Fv1n*(1-np.exp(-abs(velocity[t]/Fv2n)))
         F_pred[t] = F_t
     return F_pred
 
@@ -170,9 +168,9 @@ cond2_array_slide = (np.abs(slide_velocity) < 0.0041)
 
 for t in range(T_slide):
     if slide_velocity[t] > 0:
-        s_v_array_slide[t] = Fcp + (Fsp - Fcp) * np.exp(- (slide_velocity[t] / Vsp) ** delta_sp)
+        s_v_array_slide[t] = Fcp 
     else:
-        s_v_array_slide[t] = Fcn + (Fsn - Fcn) * np.exp(- (abs(slide_velocity[t]) / Vsn) ** delta_sn)
+        s_v_array_slide[t] = Fcn
 
 # -------------------------------
 # GMS 모델 함수 (Slide data, k와 alpha는 고정)
@@ -199,9 +197,9 @@ def gms_model_slide(C, fixed_k, fixed_alpha, velocity, s_v_array, sign_v, cond2_
                 z[t, i] = z[t-1, i] + dz * dt
             F_t += fixed_k[i] * z[t, i] + fixed_alpha[i] * dz
         if velocity[t] > 0:
-            F_t += s2p * velocity[t]
+            F_t += Fv1p*(1-np.exp(-abs(velocity[t]/Fv2p)))
         else:
-            F_t += s2n * velocity[t]
+            F_t += Fv1n*(1-np.exp(-abs(velocity[t]/Fv2n)))
         F_pred[t] = F_t
     return F_pred
 

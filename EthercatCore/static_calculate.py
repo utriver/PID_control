@@ -28,7 +28,7 @@ opti = ca.Opti()
 p = opti.variable(6)  # 6개의 파라미터
 
 # 새로운 마찰 모델 정의
-def friction_model(v, p, k=1000.0):
+def friction_model(v, p, k=10000000.0):
     m_v = (2.0/ca.pi) * ca.arctan(k*v)
     Fc = ca.if_else(v >= 0, p[0], p[1])
     friction = Fc * m_v
@@ -78,10 +78,10 @@ friction_data = {
             "index": 0,
             "F_c_p": p_opt[0],      # Fc+
             "F_c_n": p_opt[1],      # Fc-
-            "F_v1_p": p_opt[2],     # s2+
-            "F_v1_n": p_opt[3],     # s2-
-            "F_v2_p": p_opt[4],     # s3+
-            "F_v2_n": p_opt[5]      # s3-
+            "F_v1_p": p_opt[2],     # Fv1+
+            "F_v1_n": p_opt[3],     # Fv1-
+            "F_v2_p": p_opt[4],     # Fv2+
+            "F_v2_n": p_opt[5]      # Fv2-
         }
     ]
 }
