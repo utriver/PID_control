@@ -166,7 +166,6 @@ def gms_model(p, velocity, s_v_array, cond2_array, dt, N):
             Fv1p*(1-ca.exp(-ca.fabs(velocity[t]/Fv2p)))*ca.sign(velocity[t]),
             Fv1n*(1-ca.exp(-ca.fabs(velocity[t]/Fv2n)))*ca.sign(velocity[t])
         )
-        
         F_pred[t] = F_t
     return F_pred
 
@@ -220,17 +219,8 @@ for t in range(T_slide):
     m_v = (2.0/ca.pi) * ca.arctan(k_static*slide_velocity[t])
     Fc = ca.if_else(slide_velocity[t] >= 0, Fcp, Fcn)
     s_v_array_slide[t] = Fc * m_v
-
-# -------------------------------
-# Stribeck/Static friction model 함수 대체 (static_calculate_test.py의 friction_model 기반, numpy 버전)
-def friction_model_np(v, params, k=1000.0):
-    m_v = (2.0/np.pi) * np.arctan(k*v)
-    Fc = params["F_c_p"] if v >= 0 else params["F_c_n"]
-    if v >= 0:
-        viscous = params["F_v1_p"] * (1 - np.exp(-np.abs(v/params["F_v2_p"])))
     else:
-        viscous = -params["F_v1_n"] * (1 - np.exp(-np.abs(v/(-params["F_v2_n"])))) 
-    return Fc * m_v + viscous
+        s_v_array_slide[t] = Fcn + (Fsn - Fcn) * np.exp(- (abs(slide_velocity[t]) / Vsn) ** delta_sn)
 
 # -------------------------------
 # GMS 모델 함수 (Slide data, k와 alpha는 고정)
@@ -267,7 +257,6 @@ def gms_model_slide(C, fixed_k, fixed_alpha, fixed_sigma, velocity, s_v_array, c
             velocity[t] >= 0, 
             Fv1p*(1-ca.exp(-ca.fabs(velocity[t]/Fv2p)))*ca.sign(velocity[t]),
             Fv1n*(1-ca.exp(-ca.fabs(velocity[t]/Fv2n)))*ca.sign(velocity[t])
-        )
         F_pred[t] = F_t
     return F_pred
 
