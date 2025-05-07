@@ -221,7 +221,7 @@ int initAxes()
 	const int dirQ[NUM_AXIS] = {0};
 	const int dirTau[NUM_AXIS] = {0};
 	const int zeroPos[NUM_AXIS] = {0};
-	
+
 
 	for (int i = 0; i < NUM_AXIS; i++)
 	{
@@ -357,122 +357,14 @@ double physical2ethercat(double control_signal)
 		break;
 	}
 }
-void stribeck_friction(double qdotdes, double &friction_torque){
-	double Fc = 12.9389;
-	double Fs = 14.2153;
-	double Vs = 0.0002;
-	double delta_s = 2.0000;
-	double s2 = 42.9204;
-	friction_torque = Fc + (Fs - Fc) * exp(-(qdotdes / Vs) * (qdotdes / Vs)) + s2*qdotdes;
-}
+
 double error_integral = 0;
 double error, error_dot;
-void arctan_friction(double qdotdes, double &friction_torque){
-	double t_s = 21.4256;
-	double t_sc = 0.81609;
-	double t_v = 55.3774;
-	double t_nlv = -20.9042;
-	double Kv = 111;
-	double delt = 9;
-	double v = qdotdes;
-	friction_torque = t_s*(2/PI)*atan(Kv*v)+t_sc*(2/PI)*atan(v*delt)+t_v*v+t_nlv*v*v*(2/PI)*atan(v*Kv);
-	
-}
-double dz=0;
-double g_v=0;
-double z_=0;
-void Lugre_friction(double qdotdes, double &friction_torque)
-{
-	double Fc = 12.9389;
-	double Fs = 14.2153;
-	double Vs = 0.0002;
-    double s0 = 10.536233;
-    double s1 = 2169.214629;
-   	double s2 = 42.9204; 
 
-    // 留덉같 怨꾩닔 怨꾩궛
-    double g_v = Fc + (Fs - Fc) * exp(-(qdotdes / Vs) * (qdotdes / Vs));
+double kp = 2500;
+double kd = 200;
+double ki = 3500;
 
-    // dz 怨꾩궛 (�떆媛� 媛꾧꺽 dt瑜� 怨좊젮)
-    double dt = 0.00025;  // 硫붿씤 肄붾뱶�� �룞�씪�븳 �떆媛� 媛꾧꺽
-    dz = qdotdes - (s0 * abs(qdotdes) * z_) / g_v;
-    z_ = z_ + dz * dt;  // �쟻遺꾩쓣 �쐞�빐 dt瑜� 怨깊븿
-    friction_torque = s0*z_+s1*dz+s2*qdotdes;
-}
-    
-
-int gms_counter=0;
-#define N_MAXWELL 8
-double z[N_MAXWELL] = {0};
-
-
-void GMS_friction(double qdotdes, double &friction_torque) {
-    friction_torque = 0;
-
-    int N = 12;
-
-	double k_opt[12] = {177622.928544251, 44660.6234869604, 408487.823480988, 2113.37547445184, 425610.933168765, 16783.7073679804, 1433294.23402738, 770582.341157389, 258003.323607, 1189689.73147036, 434197.962372017, 13125.0497364916};
-	double alpha_opt[12] = {0.136873837388196, 0.0835560477105503, 0.00747718305579766, 0.126738956508169, 0.0545629481476721, 0.177542791292639, 0.018442480552487, 0.0153304490558945, 0.00594541318346043, 0.00280037487231405, 0.0038631523629545, 0.0534922051009204};
-	double C_opt = 8351.7184;
-	double Fs = 15;
-	double Fc = 14.4387;
-	double vs = 0.0003;
-	double sigma_opt = 38.5725;
-
-    double dt = 0.00025; // �떆媛� 媛꾧꺽
-	double t_s = 21.4256;
-	double t_sc = 0.81609;
-	double t_v = 100.3774;
-	double t_nlv = -20.9042;
-	double Kv = 111;
-	double delt = 9;
-	double v = qdotdes;
-	double s_v= t_s+t_sc*atan(v*delt);
-	double f_v= t_v*v+t_nlv*v*v*atan(v*Kv);
-
-
-
-    for (int n = 0; n < N; n++) {
-        double dz = 0.0; // �긽�깭 蹂��솕�웾 珥덇린�솕
-
-		// ���냽 �쁺�뿭: �뒪�떛�궧 諛� �봽由ъ뒳�씪�씠�뵫
-		if (fabs(z[n]) < alpha_opt[n] * s_v / k_opt[n] && fabs(qdotdes) < 1e-3*5) {
-			dz = qdotdes;  // �뒪�떛�궧 �긽�깭�뿉�꽌�뒗 �냽�룄�뿉 �쓽�빐 �긽�깭媛� 蹂��븿
-		} else {
-			dz = (C_opt * alpha_opt[n] / k_opt[n]) * ((qdotdes > 0 ? 1 : -1) - z[n] / (alpha_opt[n] * s_v / k_opt[n]));
-		}
-        
-
-        // Maxwell �슂�냼 �긽�깭 蹂��닔 �뾽�뜲�씠�듃
-        z[n] = z[n] + dz * dt;
-
-        // 留덉같 �넗�겕 怨꾩궛
-        friction_torque += k_opt[n] * z[n] + alpha_opt[n] * dz;
-    }
-
-    // �젏�꽦 留덉같�젰 異붽� (怨좎냽 �쁺�뿭�뿉�꽌�룄 �쟻�슜)
-    // double viscous_friction = sigma_opt * qdotdes;
-	friction_torque += f_v;
-
-}
-
-double kp =  2500;
-double kd = 550;
-double ki = 1500;
-void pid_control_friction(double qdes, double q, double qdot, double qdotdes, double &computed_torque, double friction_torque) {
-    
-    error = qdes - q;
-	error_dot = qdotdes - qdot;
-
-
-//	computed_torque = kp * error - kd * qdot;
-	computed_torque = 3.5*(kp * error + kd * error_dot + ki * error_integral);
-//	error_integral += 0.001 * error; //1kHz
-	error_integral += 0.00025 * error;
-//	return computed_torque;
-	//feedforward
-	computed_torque +=friction_torque;
-}
 
 void pid_control(double qdes, double q, double qdot, double qdotdes, double &computed_torque) {
     error = qdes - q;
@@ -486,28 +378,9 @@ void pid_control(double qdes, double q, double qdot, double qdotdes, double &com
 }
 
 
-void LowPassDerivative(const double & input_prev, const double& input_present, const double& output_prev, const double& cutoff , double& output){
-
-	double _delT=0.00025;
-	double ALPHA = ( (2 * cutoff * _delT) / (2 + cutoff*_delT));
-	output = ALPHA * ( (input_present - input_prev)/_delT) + (1 - ALPHA) * output_prev;
-
-}
-
-
-
 double amplitude=2 ;
-int cycle_count = 0;
-const int NUM_STEPS = 6;
-const double MIN_AMP = 0.001;
-const double MAX_AMP = 0.002;
 
-void generate_sin_trajectory(double &qdes, double &qdotdes, double &qdotdotdes, double &motion_time){
-	double omega = 2 * PI * f;
-	qdes = amplitude * (1-cos(omega* motion_time) );
-	qdotdes = amplitude * omega * sin(omega * motion_time);
-	qdotdotdes = amplitude * omega * omega * cos(omega * motion_time);
-}
+
 void generate_trajectory(double &qdes, double &qdotdes, double &qdotdotdes,  bool gen){
 	_trajectory.gen_lspb_trajectory(gen, qdes, qdotdes, qdotdotdes);
 }
