@@ -11,9 +11,9 @@ from tqdm import tqdm
 # 데이터 불러오기 및 전처리
 # -------------------------------
 # Load dynamic data
-preslide_data_path = r'C:\Users\chunggeun.kim\Documents\NRMK\1. Project\GMS 마찰보상\friction_data\RT_test\RT-data-4.csv'
-slide_data_path = r'C:\Users\chunggeun.kim\Documents\NRMK\1. Project\GMS 마찰보상\friction_data\RT_test\RT-data-4.csv'
-output_path = r'C:\Users\chunggeun.kim\Documents\NRMK\1. Project\GMS 마찰보상\friction_Id\friction_parameters.json'
+preslide_data_path = r'C:\Users\chunggeun.kim\Documents\NRMK\1. Project\GMS 마찰보상\EthercatCore\friction_data\RT_test\RT-data-4.csv'
+slide_data_path = r'C:\Users\chunggeun.kim\Documents\NRMK\1. Project\GMS 마찰보상\EthercatCore\friction_data\RT_test\RT-data-3.csv'
+output_path = r'C:\Users\chunggeun.kim\Documents\NRMK\1. Project\GMS 마찰보상\EthercatCore\friction_Id\friction_parameters.json'
 
 preslide_data = pd.read_csv(preslide_data_path, skiprows=1)
 position = preslide_data.iloc[:, 1].values
@@ -65,8 +65,6 @@ Fcn = static_params["F_c_n"]
 Fv1n = static_params["F_v1_n"]
 Fv2n = static_params["F_v2_n"]
 
-k_static = static_params["k_static"]
-
 def sigmoid_functions(x, function_type):
     """
     다양한 시그모이드 함수들을 구현
@@ -108,9 +106,8 @@ s_v_array = np.zeros(T_dyn)
 cond2_array = (np.abs(velocity) < 0.0041)  # Boolean array
 
 for t in range(T_dyn):
-    m_v = (2.0/ca.pi) * ca.arctan(k_static*velocity[t])
     Fc = ca.if_else(velocity[t] >= 0, Fcp, Fcn)
-    s_v_array[t] = Fc * m_v
+    s_v_array[t] = Fc
     
 # -------------------------------
 # GMS 모델 함수 (동적 데이터)
@@ -163,8 +160,8 @@ def gms_model(p, velocity, s_v_array, cond2_array, dt, N):
         
         F_t += ca.if_else(
             velocity[t] >= 0, 
-            Fv1p*(1-ca.exp(-ca.fabs(velocity[t]/Fv2p)))*ca.sign(velocity[t]),
-            Fv1n*(1-ca.exp(-ca.fabs(velocity[t]/Fv2n)))*ca.sign(velocity[t])
+            Fv1p*(1-ca.exp(-ca.fabs(velocity[t]/Fv2p))),
+            Fv1n*(1-ca.exp(-ca.fabs(velocity[t]/Fv2n)))
         )
         F_pred[t] = F_t
     return F_pred
@@ -216,9 +213,8 @@ sign_v_slide = np.sign(slide_velocity)
 cond2_array_slide = (np.abs(slide_velocity) < 0.004)
 
 for t in range(T_slide):
-    m_v = (2.0/ca.pi) * ca.arctan(k_static*slide_velocity[t])
     Fc = ca.if_else(slide_velocity[t] >= 0, Fcp, Fcn)
-    s_v_array_slide[t] = Fc * m_v
+    s_v_array_slide[t] = Fc
 
 # -------------------------------
 # GMS 모델 함수 (Slide data, k와 alpha는 고정)
@@ -253,8 +249,8 @@ def gms_model_slide(C, fixed_k, fixed_alpha, fixed_sigma, velocity, s_v_array, c
             F_t += fixed_k[i] * z[t, i] + fixed_sigma[i] * dz
         F_t += ca.if_else(
             velocity[t] >= 0, 
-            Fv1p*(1-ca.exp(-ca.fabs(velocity[t]/Fv2p)))*ca.sign(velocity[t]),
-            Fv1n*(1-ca.exp(-ca.fabs(velocity[t]/Fv2n)))*ca.sign(velocity[t])
+            Fv1p*(1-ca.exp(-ca.fabs(velocity[t]/Fv2p))),
+            Fv1n*(1-ca.exp(-ca.fabs(velocity[t]/Fv2n)))
         )
         F_pred[t] = F_t
     return F_pred

@@ -7,7 +7,7 @@ import json
 # 1. 데이터 로드 (CSV 파일 읽기)
 # ---------------------------
 # 예제에서는 CSV 파일에 첫 번째 열: velocity, 두 번째 열: torque가 있다고 가정합니다.
-csv_path = r'C:\Users\chunggeun.kim\Documents\NRMK\1. Project\GMS 마찰보상\friction_data\RT_test\RT-data-3.csv'
+csv_path = r'C:\Users\chunggeun.kim\Documents\NRMK\1. Project\GMS 마찰보상\EthercatCore\friction_data\RT_test\RT-data-3.csv'
 data = pd.read_csv(csv_path, header=None)
 v_data = data.iloc[:, 0].values   # 속도 데이터
 t_data = data.iloc[:, 1].values   # 토크 데이터
@@ -19,12 +19,12 @@ n_data = len(v_data)
 # ---------------------------
 opti = ca.Opti()
 
-# 파라미터 벡터: [Fc+, Fc-, Fv1+, Fv1-, Fv2+, Fv2-, k_static]
-p = opti.variable(7)  # 7개의 파라미터
+# 파라미터 벡터: [Fc+, Fc-, Fv1+, Fv1-, Fv2+, Fv2-]
+p = opti.variable(6)  # 6개의 파라미터
 
 # 새로운 마찰 모델 정의
-def friction_model(v, p):
-    m_v = (2.0/ca.pi) * ca.arctan(p[6]*v)
+def friction_model(v, p, k=100000.0):
+    m_v = (2.0/ca.pi) * ca.arctan(k*v)
     Fc = ca.if_else(v >= 0, p[0], p[1])
     friction = Fc * m_v
     viscous_friction = ca.if_else(
@@ -47,11 +47,11 @@ opti.minimize(obj)
 # 3. 제약 조건 및 초기값 설정
 # ---------------------------
 # 모든 파라미터는 음수가 되지 않도록 하한을 0으로 설정
-for i in range(7):
+for i in range(6):
     opti.subject_to(p[i] >= 0)
 
-# 초기 파라미터 설정 [Fc+, Fc-, Fv1+, Fv1-, Fv2+, Fv2-, k_static]
-p0 = [10.0, 10.0, 20.0, 20.0, 1.0, 1.0, 100.0]  # 초기값 설정
+# 초기 파라미터 설정 [Fc+, Fc-, Fv1+, Fv1-, Fv2+, Fv2-]
+p0 = [10.0, 10.0, 20.0, 20.0, 1.0, 1.0]  # 초기값 설정
 opti.set_initial(p, p0)
 
 # ---------------------------
@@ -80,14 +80,13 @@ friction_data = {
             "F_v1_p": p_opt[2],     # s2+
             "F_v1_n": p_opt[3],     # s2-
             "F_v2_p": p_opt[4],     # s3+
-            "F_v2_n": p_opt[5],     # s3-
-            "k_static": p_opt[6]    # k_static
+            "F_v2_n": p_opt[5]     # s3-
         }
     ]
 }
 
 # JSON 파일로 저장
-output_path = r'C:\Users\chunggeun.kim\Documents\NRMK\1. Project\GMS 마찰보상\friction_Id\friction_parameters.json'
+output_path = r'C:\Users\chunggeun.kim\Documents\NRMK\1. Project\GMS 마찰보상\EthercatCore\friction_Id\friction_parameters.json'
 with open(output_path, 'w') as f:
     json.dump(friction_data, f, indent=4)
 
