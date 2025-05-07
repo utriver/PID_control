@@ -5,6 +5,7 @@ from scipy.signal import butter, filtfilt
 from scipy.optimize import least_squares
 import matplotlib.pyplot as plt
 import json
+import time as timer
 from tqdm import tqdm
 
 # -------------------------------
@@ -87,7 +88,7 @@ def sigmoid_functions(x, function_type):
         return -0.5 * x / np.sqrt(1 + x**2) + 0.5
     
     elif function_type == 4:
-        return -0.5 * x / (1 + np.abs(x)) + 0.5
+        return -0.5 * x / (1 + np.fabs(x)) + 0.5
     
     elif function_type == 5:
         return 1 / (1 + np.exp(x))
@@ -98,21 +99,24 @@ def sigmoid_functions(x, function_type):
     else:
         raise ValueError("함수 타입은 1-6 사이의 값이어야 합니다.")
 
+epsilon = 0.004  # 마찰계수 계산을 위한 작은 값 (zero-crossing detection)
+sigmoid_type = 1  # 시그모이드 함수 타입 (1-6)
+
 # -------------------------------
 # 미리 계산 가능한 값들 (dynamic data)
 # -------------------------------
 T_dyn = len(velocity)
 s_v_array = np.zeros(T_dyn)
-cond2_array = (np.abs(velocity) < 0.0041)  # Boolean array
+cond2_array = (np.fabs(velocity) < epsilon)  # Boolean array
 
 for t in range(T_dyn):
     Fc = ca.if_else(velocity[t] >= 0, Fcp, Fcn)
     s_v_array[t] = Fc
-    
+
 # -------------------------------
 # GMS 모델 함수 (동적 데이터)
 # -------------------------------
-def gms_model(p, velocity, s_v_array, cond2_array, dt, N):
+def gms_model(p, velocity, s_v_array, cond2_array, dt, N, sigmoid_type):
     """
     파라미터 p: 길이 3N+1 벡터
       - p[0:N] : k (스티프니스)
@@ -120,6 +124,22 @@ def gms_model(p, velocity, s_v_array, cond2_array, dt, N):
       - p[2N:3N] : sigma (댐핑 계수)
       - p[3N] : C
     """
+    global gamma1
+    global gamma2
+    
+    if sigmoid_type == 1:
+        gamma1, gamma2 = 1846, 14
+    elif sigmoid_type == 2:
+        gamma1, gamma2 = 46225, 8995
+    elif sigmoid_type == 3:
+        gamma1, gamma2 = 3336, 110
+    elif sigmoid_type == 4:
+        gamma1, gamma2 = 67660, 14124
+    elif sigmoid_type == 5:
+        gamma1, gamma2 = 4556, 22
+    elif sigmoid_type == 6:
+        gamma1, gamma2 = 3906, 1
+    
     k = p[0:N]
     beta = p[N:2*N]
     sigma = p[2*N:3*N]  # 새로 추가된 sigma 파라미터
@@ -130,44 +150,40 @@ def gms_model(p, velocity, s_v_array, cond2_array, dt, N):
     T = len(velocity)
     z = np.zeros((T, N))
     F_pred = np.zeros(T)
-    global gamma1
-    global gamma2
-    gamma1 = 1846
-    gamma2 = 14
-
+    
     for t in tqdm(range(T), desc="동적 모델 계산 중"):
         s_v = s_v_array[t]
         F_t = 0.0
         for i in range(N):
             Di = alpha[i] * s_v / k[i]
-            x1i = gamma1*(np.abs(z[t-1,i])-Di)/Di
-            x2i = gamma2*(np.abs(velocity[t])-0.004)/0.004
-            wai = sigmoid_functions(x1i,1)*sigmoid_functions(x2i,1)
+            x1i = gamma1*(np.fabs(z[t-1,i])-Di)/Di
+            x2i = gamma2*(np.fabs(velocity[t])-epsilon)/epsilon
+            wai = sigmoid_functions(x1i, sigmoid_type)*sigmoid_functions(x2i, sigmoid_type)
             wbi=1-wai
             if t == 0:
                 dz = velocity[t]
                 z[t, i] = dz * dt
             else:
-                cond1 = np.abs(z[t-1, i]) < (alpha[i] * s_v / k[i])
+                cond1 = np.fabs(z[t-1, i]) < (alpha[i] * s_v / k[i])
                 if cond1 and cond2_array[t]:
                     dz = velocity[t]
                 else:
-                    dz = velocity[t]*wai+wbi*(alpha[i] * C)/k[i]*(np.sign(velocity[t]) - z[t-1, i] / Di)
-                    # dz = (alpha[i] * C)/k[i]*(np.sign(velocity[t]) - z[t-1, i] / Di)
-
+                    dz = (velocity[t]*wai + wbi*(alpha[i] * C)/k[i]
+                        * (np.sign(velocity[t]) - z[t-1, i] / (alpha[i] * s_v / k[i])))
                 z[t, i] = z[t-1, i] + dz * dt
             F_t += k[i] * z[t, i] + sigma[i]*dz
         
         F_t += ca.if_else(
             velocity[t] >= 0, 
-            Fv1p*(1-ca.exp(-ca.fabs(velocity[t]/Fv2p))),
-            Fv1n*(1-ca.exp(-ca.fabs(velocity[t]/Fv2n)))
+            Fv1p*(1-np.exp(-np.fabs(velocity[t]/Fv2p)))*ca.sign(velocity[t]),
+            Fv1n*(1-np.exp(-np.fabs(velocity[t]/Fv2n)))*ca.sign(velocity[t])
         )
+        
         F_pred[t] = F_t
     return F_pred
 
 def residual_dyn(p, velocity, s_v_array, cond2_array, dt, N, torque_measured):
-    F_pred = gms_model(p, velocity, s_v_array, cond2_array, dt, N)
+    F_pred = gms_model(p, velocity, s_v_array, cond2_array, dt, N, sigmoid_type)
     return F_pred - torque_measured
 
 # -------------------------------
@@ -176,10 +192,13 @@ def residual_dyn(p, velocity, s_v_array, cond2_array, dt, N, torque_measured):
 # 파라미터 초기 추정치 설정
 # p = [k (N개), beta (N개), sigma (N개), C (1개)]
 p0_dyn = np.concatenate([
-    np.array([4.5959, 0.9490, 0.2289, 0.1332, 0.0341, 0.0095, 0.0108, 0.0172]) * 1e5,  # 초기 k
-    1/N * np.ones(N),        # beta 초기값
-    0.01 * np.ones(N),       # 초기 sigma 값 추가             
+    np.array([4.5959, 0.9490, 0.2289, 0.1332, 0.0341, 0.0095, 0.0108, 0.0172]) * 1e5,
+    1/N * np.ones(N),  # beta 초기값 (softmax 변환을 위해)
+    0.01*np.ones(N)    # 초기 sigma 값 추가             
 ])
+
+start_time = timer.time()
+print("동적 모델 최적화 시작...")
 
 # least_squares 최적화 수행 (제곱 오차 최소화)
 res_dyn = least_squares(
@@ -191,12 +210,16 @@ res_dyn = least_squares(
     xtol=1e-6, ftol=1e-6, verbose=2
 )
 
+end_time = timer.time()
+elapsed = end_time - start_time
+print(f"\n동적 모델 계산 시간: {elapsed:.2f}초")
+
 p_opt = res_dyn.x
 k_opt = p_opt[0:N]
 beta_opt = p_opt[N:2*N]
 sigma_opt = p_opt[2*N:3*N]  # 최적화된 sigma 값
 exp_beta = np.exp(beta_opt)
-alpha_opt = exp_beta / np.sum(exp_beta)
+alpha_opt = exp_beta / np.sum(exp_beta)  # softmax 변환된 alpha 값
 
 print("Dynamic data 최적화 완료!")
 print("최적의 k:", k_opt)
@@ -209,54 +232,67 @@ print("최적의 sigma:", sigma_opt)
 # -------------------------------
 T_slide = len(slide_velocity)
 s_v_array_slide = np.zeros(T_slide)
-sign_v_slide = np.sign(slide_velocity)
-cond2_array_slide = (np.abs(slide_velocity) < 0.004)
+cond2_array_slide = (np.fabs(slide_velocity) < epsilon)
 
 for t in range(T_slide):
     Fc = ca.if_else(slide_velocity[t] >= 0, Fcp, Fcn)
     s_v_array_slide[t] = Fc
-
+    
 # -------------------------------
 # GMS 모델 함수 (Slide data, k와 alpha는 고정)
 # -------------------------------
-def gms_model_slide(C, fixed_k, fixed_alpha, fixed_sigma, velocity, s_v_array, cond2_array, dt, N):
+def gms_model_slide(C, fixed_k, fixed_alpha, fixed_sigma, velocity, s_v_array, cond2_array, dt, N, sigmoid_type):
     T = len(velocity)
     z = np.zeros((T, N))
     F_pred = np.zeros(T)
-    gamma1 = 1846
-    gamma2 = 14
+    
+    global gamma1
+    global gamma2
+    
+    if sigmoid_type == 1:
+        gamma1, gamma2 = 1846, 14
+    elif sigmoid_type == 2:
+        gamma1, gamma2 = 46225, 8995
+    elif sigmoid_type == 3:
+        gamma1, gamma2 = 3336, 110
+    elif sigmoid_type == 4:
+        gamma1, gamma2 = 67660, 14124
+    elif sigmoid_type == 5:
+        gamma1, gamma2 = 4556, 22
+    elif sigmoid_type == 6:
+        gamma1, gamma2 = 3906, 1
     
     for t in tqdm(range(T), desc="슬라이드 모델 계산 중"):
         s_v = s_v_array[t]
         F_t = 0.0
         for i in range(N):
             Di = fixed_alpha[i] * s_v / fixed_k[i]
-            x1i = gamma1*(np.abs(z[t-1,i])-Di)/Di
-            x2i = gamma2*(np.abs(velocity[t])-0.004)/0.004
-            wai = sigmoid_functions(x1i,1)*sigmoid_functions(x2i,1)
+            x1i = gamma1*(np.fabs(z[t-1,i])-Di)/Di
+            x2i = gamma2*(np.fabs(velocity[t])-epsilon)/epsilon
+            wai = sigmoid_functions(x1i, sigmoid_type)*sigmoid_functions(x2i, sigmoid_type)
             wbi=1-wai
             if t == 0:
                 dz = velocity[t]
                 z[t, i] = dz * dt
             else:
-                cond1 = np.abs(z[t-1, i]) < (fixed_alpha[i] * s_v / fixed_k[i])
+                cond1 = np.fabs(z[t-1, i]) < (fixed_alpha[i] * s_v / fixed_k[i])
                 if cond1 and cond2_array[t]:
                     dz = velocity[t]
                 else:
-                    # dz = (fixed_alpha[i] * C)/fixed_k[i]*(np.sign(velocity[t]) - z[t-1, i] / Di)
-                    dz = velocity[t]*wai+wbi*(fixed_alpha[i] * C)/fixed_k[i]*(np.sign(velocity[t]) - z[t-1, i] / Di)
+                    dz = (velocity[t]*wai + wbi*(fixed_alpha[i]*C)/fixed_k[i] 
+                        * (np.sign(velocity[t]) - z[t-1, i] / (fixed_alpha[i] * s_v / fixed_k[i])))
                 z[t, i] = z[t-1, i] + dz * dt
             F_t += fixed_k[i] * z[t, i] + fixed_sigma[i] * dz
         F_t += ca.if_else(
             velocity[t] >= 0, 
-            Fv1p*(1-ca.exp(-ca.fabs(velocity[t]/Fv2p))),
-            Fv1n*(1-ca.exp(-ca.fabs(velocity[t]/Fv2n)))
+            Fv1p*(1-np.exp(-np.fabs(velocity[t]/Fv2p)))*ca.sign(velocity[t]),
+            Fv1n*(1-np.exp(-np.fabs(velocity[t]/Fv2n)))*ca.sign(velocity[t])
         )
         F_pred[t] = F_t
     return F_pred
 
-def residual_slide(C, fixed_k, fixed_alpha,fixed_sigma, velocity, s_v_array, cond2_array, dt, N, slide_torque_measured):
-    F_pred = gms_model_slide(C, fixed_k, fixed_alpha,fixed_sigma, velocity, s_v_array, cond2_array, dt, N)
+def residual_slide(C, fixed_k, fixed_alpha, fixed_sigma, velocity, s_v_array, cond2_array, dt, N, slide_torque_measured):
+    F_pred = gms_model_slide(C, fixed_k, fixed_alpha, fixed_sigma, velocity, s_v_array, cond2_array, dt, N, sigmoid_type)
     return F_pred - slide_torque_measured
 
 # -------------------------------
@@ -269,7 +305,7 @@ C0 = np.array([C_opt])  # 초기값은 동적 데이터 최적화 결과 사용
 res_slide = least_squares(
     residual_slide,
     C0,
-    args=(k_opt, alpha_opt,sigma_opt, slide_velocity, s_v_array_slide, cond2_array_slide, dt, N, slide_torque_measured),
+    args=(k_opt, alpha_opt, sigma_opt, slide_velocity, s_v_array_slide, cond2_array_slide, dt, N, slide_torque_measured),
     bounds=([0.0], [1e5]),
     xtol=1e-4, ftol=1e-4, verbose=2
 )
@@ -282,7 +318,7 @@ print("최종 최적의 C 값:", C_opt_slide)
 # 결과 시각화
 # -------------------------------
 # Dynamic data 결과 그래프
-F_predicted_dyn_opt = gms_model(p_opt, velocity, s_v_array, cond2_array, dt, N)
+F_predicted_dyn_opt = gms_model(p_opt, velocity, s_v_array, cond2_array, dt, N, sigmoid_type)
 ss_res = np.sum((torque_measured - F_predicted_dyn_opt)**2)
 ss_tot = np.sum((torque_measured - np.mean(torque_measured))**2)
 r_squared = (1 - ss_res/ss_tot) * 100
@@ -301,7 +337,7 @@ plt.legend()
 plt.show()
 
 # Slide data 결과 그래프
-F_predicted_slide_opt = gms_model_slide(C_opt_slide, k_opt, alpha_opt, sigma_opt, slide_velocity, s_v_array_slide, cond2_array_slide, dt, N)
+F_predicted_slide_opt = gms_model_slide(C_opt_slide, k_opt, alpha_opt, sigma_opt, slide_velocity, s_v_array_slide, cond2_array_slide, dt, N, sigmoid_type)
 plt.figure(figsize=(5, 3))
 plt.plot(slide_velocity, slide_torque_measured, 'b.', label='Measured', markersize=2)
 plt.plot(slide_velocity, F_predicted_slide_opt, 'r*', label='Predicted', markersize=2)

@@ -19,17 +19,17 @@ n_data = len(v_data)
 # ---------------------------
 opti = ca.Opti()
 
-# 파라미터 벡터: [Fc+, Fc-, Fv1+, Fv1-, Fv2+, Fv2-]
-p = opti.variable(6)  # 6개의 파라미터
+# 파라미터 벡터: [Fc+, Fc-, Fv1+, Fv1-, Fv2+, Fv2-, arc_k]
+p = opti.variable(7)  # 7개의 파라미터
 
 # 새로운 마찰 모델 정의
-def friction_model(v, p, k=100000.0):
-    m_v = (2.0/ca.pi) * ca.arctan(k*v)
+def friction_model(v, p):
+    m_v = (2.0/ca.pi) * ca.arctan(p[6]*v)
     Fc = ca.if_else(v >= 0, p[0], p[1])
     friction = Fc * m_v
     viscous_friction = ca.if_else(
         v >= 0, 
-        p[2]*(1-ca.exp(-ca.fabs(v/p[4])))*ca.sign(v), 
+        p[2]*(1-ca.exp(-ca.fabs(v/p[4])))*ca.sign(v),
         p[3]*(1-ca.exp(-ca.fabs(v/p[5])))*ca.sign(v)
     )
     
@@ -50,8 +50,8 @@ opti.minimize(obj)
 for i in range(6):
     opti.subject_to(p[i] >= 0)
 
-# 초기 파라미터 설정 [Fc+, Fc-, Fv1+, Fv1-, Fv2+, Fv2-]
-p0 = [10.0, 10.0, 20.0, 20.0, 1.0, 1.0]  # 초기값 설정
+# 초기 파라미터 설정 [Fc+, Fc-, Fv1+, Fv1-, Fv2+, Fv2-, arc_k]
+p0 = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1000.0]  # 초기값 설정
 opti.set_initial(p, p0)
 
 # ---------------------------
@@ -62,7 +62,7 @@ opti.solver("ipopt", {
     "print_time": False,
     "ipopt": {
         "print_level": 0,
-        "tol": 1e-12
+        "tol": 1e-6
     }
 })
 sol = opti.solve()
@@ -80,7 +80,8 @@ friction_data = {
             "F_v1_p": p_opt[2],     # s2+
             "F_v1_n": p_opt[3],     # s2-
             "F_v2_p": p_opt[4],     # s3+
-            "F_v2_n": p_opt[5]     # s3-
+            "F_v2_n": p_opt[5],     # s3-
+            "arc_k": p_opt[6]       # arc_k
         }
     ]
 }
