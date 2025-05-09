@@ -121,6 +121,7 @@ double gt=0;
 double q[NUM_AXIS] = {0,};
 double despos[NUM_AXIS] = {0,};
 double qdot[NUM_AXIS] = {0,};
+double qddot[NUM_AXIS] = {0,};
 double desvel[NUM_AXIS] = {0,};
 double qddot[NUM_AXIS] = {0,};
 double desacc[NUM_AXIS] = {0,};
@@ -187,8 +188,8 @@ RobotControlData ctrlData;
 
 double qdes_lspb_init = 0;
 
-JointVec _qdot_prev;
-JointVec _qddot_prev;
+JointVec _qdot_prev; _qdot_prev = JointVec::Zero();
+JointVec _qddot_prev; _qddot_prev = JointVec::Zero();
 
 /****************************************************************************/
 
@@ -400,6 +401,9 @@ double motion_number;
 double prev_cycle = 0;
 bool first_cycle = true;
 int dynamic_run = 1;
+JointVec den_sum = 0;
+JointVec num_sum = 0;
+JointVec estimated_inertia = 0;
 int compute() {
     if (demo_mode == DEMO_MODE_TORQUE) {
 		if (system_ready)
@@ -425,8 +429,12 @@ int compute() {
 				{
 						// Start of Selection
 					qdes[i] = q_init + qdes[i] + qdes_lspb_init;
-				}else{
 					
+					// summation for inertia estimation 
+					den_sum[i] += core_tor[i]*qddot[i]*period;
+					num_sum[i] += qddot[i]*qddot[i]*period;
+				}else{
+					estimated_inertia[i] = den_sum[i]/num_sum[i];
 					const double q_last = 2.3964 ;
 					gen = false;
 					qdes[i] = q_last;
@@ -695,7 +703,13 @@ void save_run(void *arg)
     }
 }
 
-
+// filtere derivative function impelemantation 
+double filteredDerivative(const double& input_prev, const double& input_present, const double& output_prev, double cutoff)
+{
+	double ALPHA = ((2 * cutoff * period) / (2 + cutoff * period));
+	double derivative = (input_present - input_prev) / period;
+	return ALPHA * derivative + (1 - ALPHA) * output_prev;
+}
 //EthercatCore_task	
 void EthercatCore_run(void *arg)
 {
@@ -735,6 +749,13 @@ void EthercatCore_run(void *arg)
 
 		ethercat2physical();
 		/// TO DO: Main computation routine...
+		// estimate acceleration 
+		for (int i = 0; i < NUM_AXIS; ++i)
+		{
+			qddot[i] = filteredDerivative(_qdot_prev[i], qdot[i], _qddot_prev[i], 10);
+			_qdot_prev[i] = qdot[i];
+			_qddot_prev[i] = qddot[i];
+		}
 		compute();
 
 		ctrlData.time = gt;
@@ -874,6 +895,7 @@ void print_run(void *arg)
 				rt_printf("\e[32;1m\t friction_torque: %f,  \e[0m\n", 	 	friction_torque[i]);
 				rt_printf("\e[32;1m\t percent_ready: %f,  \e[0m\n", 	 	percent_ready);
 				rt_printf("\e[32;1m\t percent_extract: %f,  \e[0m\n", 	 	percent_extract);
+				rt_printf("\e[32;1m\t estimated_inertia: %f,  \e[0m\n", 	 	estimated_inertia[i]);
 				
 
 			}
