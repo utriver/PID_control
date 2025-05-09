@@ -493,7 +493,7 @@ void AgingDataLogger::update_avg_buffer(RobotControlData ctrlData, int traj_phas
 void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData)
 {
 	
-	if (ctrloggerIdx < CTRL_BUFF_SIZE)
+	if (!isRTbufferFilled)
     {
         _loggingBuff_ctrl[ctrloggerIdx].time = ctrlData.time;
         for (int i = 0; i < CORE_NUM_AXIS; i++)
@@ -502,42 +502,14 @@ void AgingDataLogger::update_rt_buffer(RobotControlData ctrlData)
             _loggingBuff_ctrl[ctrloggerIdx].qdes[i] = ctrlData.qdes[i];
             _loggingBuff_ctrl[ctrloggerIdx].qdot[i] = ctrlData.qdot[i];
             _loggingBuff_ctrl[ctrloggerIdx].qdotdes[i] = ctrlData.qdotdes[i];
+            _loggingBuff_ctrl[ctrloggerIdx].ActualTor[i] = ctrlData.ActualTor[i];
+            _loggingBuff_ctrl[ctrloggerIdx].TargetTor[i] = ctrlData.TargetTor[i];
             _loggingBuff_ctrl[ctrloggerIdx].coretor[i] = ctrlData.coretor[i];
-            _loggingBuff_ctrl[ctrloggerIdx].friction_torque[i] = ctrlData.friction_torque[i];
+            _loggingBuff_ctrl[ctrloggerIdx].inertia_estimation[i] = ctrlData.inertia_estimation[i];
         }
         ctrloggerIdx++;
-    }
-    else
-    {
-        isRTbufferFilled = true;
-        ctrloggerIdx = 0;
-    }
+    }else{}
 }
-
-// void AgingDataLogger::update_rt_buffer1(RobotControlData ctrlData)
-// {
-	
-// 	if (ctrloggerIdx < CTRL_BUFF_SIZE1)
-//     {
-//         _loggingBuff_ctrl1[ctrloggerIdx].time = ctrlData.time;
-//         for (int i = 0; i < CORE_NUM_AXIS; i++)
-//         {
-//             _loggingBuff_ctrl1[ctrloggerIdx].q[i] = ctrlData.q[i];
-//             _loggingBuff_ctrl1[ctrloggerIdx].qdes[i] = ctrlData.qdes[i];
-//             _loggingBuff_ctrl1[ctrloggerIdx].qdot[i] = ctrlData.qdot[i];
-//             _loggingBuff_ctrl1[ctrloggerIdx].qdotdes[i] = ctrlData.qdotdes[i];
-//             _loggingBuff_ctrl1[ctrloggerIdx].coretor[i] = ctrlData.coretor[i];
-//             _loggingBuff_ctrl1[ctrloggerIdx].friction_torque[i] = ctrlData.friction_torque[i];
-//         }
-//         ctrloggerIdx++;
-//     }
-//     else
-//     {
-//         isRTbufferFilled = true;
-//         ctrloggerIdx = 0;
-//     }
-// }
-
 
 
 bool AgingDataLogger::set_logging_path(char *rt_logging_path, char *avg_logging_path)
