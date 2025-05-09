@@ -74,7 +74,6 @@ struct RobotControlData
 	double gravtor[NUM_AXIS];
 	double coretemperature[NUM_AXIS];
 	double sensortemperature[NUM_AXIS];
-	double inertia_estimation[NUM_AXIS];
 	INT32 ActualPOS[NUM_AXIS];
 	INT32 ActualVel[NUM_AXIS];
 	INT32 ActualTor[NUM_AXIS];

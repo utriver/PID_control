@@ -49,9 +49,7 @@ class SystemInterface_EtherCAT_EthercatCore
 				INT32		Positionactualvalue; 	// 0x6064
 				INT32		Velocityactualvalue; 	// 0x606c
 				INT16		Torqueactualvalue; 	// 0x6077
-				INT8		Modesofoperationdisplay; 	// 0x6061
-				INT16		Currentactualvalue; 	// 0x6078
-				INT32		Additionalpositionactualvalue; 	// 0x60e4				
+				INT8		Modesofoperationdisplay; 	// 0x6061				
 			};
 			struct NEUROMEKA_NRMK_DRIVE
 			{
@@ -73,8 +71,6 @@ class SystemInterface_EtherCAT_EthercatCore
 				UINT32 offVelocityactualvalue;
 				UINT32 offTorqueactualvalue;
 				UINT32 offModesofoperationdisplay;
-				UINT32 offCurrentactualvalue;
-				UINT32 offAdditionalpositionactualvalue;
 				UINT32 bitoffControlword;
 				UINT32 bitoffTargetposition;
 				UINT32 bitoffTargetvelocity;
@@ -84,9 +80,7 @@ class SystemInterface_EtherCAT_EthercatCore
 				UINT32 bitoffPositionactualvalue;
 				UINT32 bitoffVelocityactualvalue;
 				UINT32 bitoffTorqueactualvalue;
-				UINT32 bitoffModesofoperationdisplay;
-				UINT32 bitoffCurrentactualvalue;
-				UINT32 bitoffAdditionalpositionactualvalue;								
+				UINT32 bitoffModesofoperationdisplay;								
 				
 			};
 			
