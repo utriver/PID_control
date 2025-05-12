@@ -123,7 +123,6 @@ double despos[NUM_AXIS] = {0,};
 double qdot[NUM_AXIS] = {0,};
 double qddot[NUM_AXIS] = {0,};
 double desvel[NUM_AXIS] = {0,};
-double qddot[NUM_AXIS] = {0,};
 double desacc[NUM_AXIS] = {0,};
 double core_tor[NUM_AXIS] = {0,};
 
@@ -188,8 +187,8 @@ RobotControlData ctrlData;
 
 double qdes_lspb_init = 0;
 
-JointVec _qdot_prev; _qdot_prev = JointVec::Zero();
-JointVec _qddot_prev; _qddot_prev = JointVec::Zero();
+double _qdot_prev[NUM_AXIS] = {0,};
+double _qddot_prev[NUM_AXIS] = {0,};
 
 /****************************************************************************/
 
@@ -362,20 +361,17 @@ double physical2ethercat(double control_signal)
 double error_integral = 0;
 double error, error_dot;
 
-double kp = 2500;
-double kd = 200;
-double ki = 3500;
+double kp = 10000;
+double kd = 1250;
+double ki = 20000;
 
 
 void pid_control(double qdes, double q, double qdot, double qdotdes, double &computed_torque) {
     error = qdes - q;
 	error_dot = qdotdes - qdot;
 
-//	computed_torque = kp * error - kd * qdot;
 	computed_torque = 3.5*(kp * error + kd * error_dot + ki * error_integral);
-//	error_integral += 0.001 * error; //1kHz
 	error_integral += 0.00025 * error;
-//	return computed_torque;
 }
 
 
@@ -401,9 +397,10 @@ double motion_number;
 double prev_cycle = 0;
 bool first_cycle = true;
 int dynamic_run = 1;
-JointVec den_sum = 0;
-JointVec num_sum = 0;
-JointVec estimated_inertia = 0;
+double den_sum[NUM_AXIS] = {0,};
+double num_sum[NUM_AXIS] = {0,};
+double estimated_inertia[NUM_AXIS] = {0,};
+
 int compute() {
     if (demo_mode == DEMO_MODE_TORQUE) {
 		if (system_ready)
@@ -412,10 +409,9 @@ int compute() {
 			{
 				if(flag_datalogging)
 				{
-    					// Start of Selection
-    					q_init = q[i];   // 첫 번째 실제 위치
+					// Start of Selection
+					q_init = q[i];   // 첫 번째 실제 위치
 					WRITE_MOVE_BUFFER = true;
-					// _dataLogger.activate();
 					flag_datalogging = false;
 				}
 			
@@ -427,19 +423,26 @@ int compute() {
 
 				if(ctr_traj < _trajectory.max_traj_size-1)
 				{
-						// Start of Selection
-					qdes[i] = q_init + qdes[i] + qdes_lspb_init;
+					qdes[i] = qdes[i] + qdes_lspb_init;
 					
 					// summation for inertia estimation 
-					den_sum[i] += core_tor[i]*qddot[i]*period;
-					num_sum[i] += qddot[i]*qddot[i]*period;
+					den_sum[i] += core_tor[i]*qdotdotdes[i]*period;
+					num_sum[i] += qdotdotdes[i]*qdotdotdes[i]*period;
 				}else{
-					estimated_inertia[i] = den_sum[i]/num_sum[i];
-					const double q_last = 2.3964 ;
-					gen = false;
-					qdes[i] = q_last;
-					ctr_traj = _trajectory.max_traj_size+1000000;
+					if (num_sum[i] == 0)
+					{
+						estimated_inertia[i] = 0;
+					}else{
+						estimated_inertia[i] = den_sum[i]/num_sum[i];
+					}
 
+					ctrlData.inertia_estimation[i] = estimated_inertia[i];
+
+					gen = false;
+
+					qdes[i] = _trajectory._qdes_traj_pos.back();
+					ctr_traj = _trajectory.max_traj_size+1000000;
+					_frictionDataLogger.isRTbufferFilled = true;
 				}	
 				
 					ctr_traj++; //=motion_time
@@ -454,7 +457,7 @@ int compute() {
 
 				if(initflag){
 					ZeroPos[i] = ActualPos[i];
-					if(ActualPos[0] != 0) initflag = false;					
+					if(ActualPos[0] != 0) initflag = false;
 				}
 
  				generate_trajectory(qdes[i], qdotdes[i], qdotdotdes[i], gen);
@@ -468,7 +471,8 @@ int compute() {
             } else {
                 _systemInterface_EtherCAT_EthercatCore.setServoOn(i);
 				control_signal = 0;
-                TargetTor[i] = 0;  // Zero torque when not ready
+				ZeroPos[i] = ActualPos[i];
+				TargetTor[i] = 0;  // Zero torque when not ready
             }
         }
     } else if (demo_mode == DEMO_MODE_POSITION) {
@@ -523,161 +527,6 @@ int current_count = 0;
 
 #define MAX_LINE_LENGTH 2048  // �뜑 �겙 踰꾪띁 �겕湲� �궗�슜
 
-void extract_data(double &percent_extract)
-
-{
-	const char* base_path = "/home/user/release/";
-	char filepath[256], filepath1[256], filepath2[256], filepath3[256];
-	
-	snprintf(filepath, sizeof(filepath), "%sdata_csvFile/target_vel.csv", base_path);
-	snprintf(filepath1, sizeof(filepath1), "%sfriction_data/RT_test/RT-data-1.csv", base_path);
-	snprintf(filepath2, sizeof(filepath2), "%sfriction_data/RT_test/RT-data-2.csv", base_path);
-	
-	FILE *fp1 = fopen(filepath1, "r");
-	FILE *fp2 = fopen(filepath2, "r");
-	
-	if (fp1 == NULL || fp2 == NULL) {
-		printf("파일을 열 수 없습니다. 경로: %s, %s\n", filepath1, filepath2);
-		return;
-	}
-
-	// 데이터 검증을 위해 파일의 첫 5줄을 화면에 출력하여 포맷 확인
-	char line[MAX_LINE_LENGTH];
-	int line_count = 0;
-	
-	while (fgets(line, sizeof(line), fp1) && line_count < 5) {
-		printf("Line %d: %s", line_count++, line);
-	}
-
-	// 두 파일의 포인터를 파일의 시작으로 되돌려, 실제 데이터 처리 전 상태로 복귀
-	rewind(fp1);
-	rewind(fp2);
-
-	std::vector<double> target_vels;
-	std::ifstream file(filepath);
-	if (!file.is_open()) std::cerr << "Error: cannot open file " << filepath << std::endl;
-	
-	std::string vel_line;
-	while (std::getline(file, vel_line)) {
-		std::istringstream linestream(vel_line);
-		std::string token;
-		while (std::getline(linestream, token, ',')) {
-			try {
-				double v = std::stod(token);
-				target_vels.push_back(v);
-			} catch (const std::invalid_argument&) {
-				// 숫자로 변환할 수 없는 토큰은 무시
-			}
-		}
-	}
-
-	// target_vels와 fp1, fp2의 4, 7번째 열 값 쌍을 여러 개 저장할 수 있는 matching_data 2차원 벡터 배열 선언
-	std::vector<std::vector<std::vector<double>>> matching_data(target_vels.size());
-
-	
-	// Process file 1
-	// fgets: 한줄 씩 읽기
-	while (fgets(line, sizeof(line), fp1)) {
-		if (ferror(fp1)) { clearerr(fp1); continue; }
-		auto tokens = split(std::string(line), ','); // 쉼표 기준 토큰 분리
-		if (tokens.size() < 7) continue;
-
-		double vel = std::stod(tokens[4]);
-		vel = round(vel * 10000.0) / 10000.0; // 소수점 넷째 자리로 반올림
-		
-		printf("Reading velocity: %.6f\n", vel);
-		for (size_t i = 0; i < target_vels.size(); i++) {
-			if (fabs(vel - target_vels[i]) < 1e-5) {
-				// 4번째(tokens[3])와 7번째(tokens[6]) 열 값 저장
-				matching_data[i].push_back({
-					std::stod(tokens[3]),
-					std::stod(tokens[6])
-				});
-				printf("Match found for velocity %.6f\n", target_vels[i]);
-				break;
-			}
-		}
-	}
-
-	// Process file 2 
-	// fgets: 한줄 씩 읽기
-	while (fgets(line, sizeof(line), fp2)) {
-		if (ferror(fp2)) { clearerr(fp2); continue; }
-		auto tokens = split(std::string(line), ','); // 쉼표 기준 토큰 분리
-		if (tokens.size() < 7) continue;
-
-		double vel = std::stod(tokens[4]);
-		vel = round(vel * 10000.0) / 10000.0; // 소수점 넷째 자리로 반올림
-
-		printf("Reading velocity: %.6f\n", vel);
-		for (size_t i = 0; i < target_vels.size(); i++) {
-			if (fabs(vel - target_vels[i]) < 1e-5) {
-				// 4번째(tokens[3])와 7번째(tokens[6]) 열 값 저장
-				matching_data[i].push_back({
-					std::stod(tokens[3]),
-					std::stod(tokens[6])
-				});
-				printf("Match found for velocity %.6f\n", target_vels[i]);
-				break;
-			}
-		}
-	}
-
-	fclose(fp1);
-	fclose(fp2);
-
-	//mean each part of the data
-	// 각 목표 속도마다 matching_data 크기 확인
-	std::vector<double> mean_data_4th, mean_data_7th;
-	mean_data_4th.reserve(target_vels.size());
-	mean_data_7th.reserve(target_vels.size());
-
-	for (size_t i = 0; i < target_vels.size(); i++) {
-		double sum_4th = 0, sum_7th = 0;
-		size_t valid_data_count = matching_data[i].size();
-		
-		// 데이터 없으면 0.0 저장, 경고 출력
-		if (valid_data_count == 0) {
-			mean_data_4th.push_back(0.0);
-			mean_data_7th.push_back(0.0);
-			printf("Warning: No data found for velocity %f\n", target_vels[i]);
-			continue;
-		}
-		 // 유효성 검사하며 합산
-		for (auto &row : matching_data[i]) {
-			if (std::isfinite(row[0])) sum_4th += row[0];
-			else { printf("Invalid 4th col at vel %f\n", target_vels[i]); valid_data_count--; }
-			if (std::isfinite(row[1])) sum_7th += row[1];
-			else { printf("Invalid 7th col at vel %f\n", target_vels[i]); valid_data_count--; }
-		}
-
-		if (valid_data_count > 0) {
-			mean_data_4th.push_back(sum_4th / valid_data_count);
-			mean_data_7th.push_back(sum_7th / valid_data_count);
-		} else {
-			mean_data_4th.push_back(0.0);
-			mean_data_7th.push_back(0.0);
-			printf("Warning: No valid data for velocity %f\n", target_vels[i]);
-		}
-	}
-	
-	FILE *fp3 = fopen("friction_data/RT_test/RT-data-3.csv", "w");
-	if (!fp3) { printf("Error: Cannot open output file\n"); return; }
-
-	int extract = 0;
-	for (size_t i = 0; i < target_vels.size(); i++) {
-		if (std::isfinite(mean_data_4th[i]) && std::isfinite(mean_data_7th[i])) {
-			fprintf(fp3, "%f,%f\n", mean_data_4th[i], mean_data_7th[i]);
-		} else {
-			fprintf(fp3, "0.0,0.0\n");
-			printf("Warning: Invalid mean values for velocity %f\n", target_vels[i]);
-		}
-		extract++;
-		percent_extract = (double)extract / target_vels.size() * 100;
-	}
-	fclose(fp3);
-}
-
 int filenum1 = 1;
 int filenum2 = 1;
 double percent_ready = 0;
@@ -697,7 +546,6 @@ void save_run(void *arg)
                 SAVE_MOVE_BUFFER = false;
                 WRITE_MOVE_BUFFER = false;
 				printf("save_run\n");
-				extract_data(percent_extract);
         }
         rt_task_wait_period(NULL);
     }
@@ -896,6 +744,8 @@ void print_run(void *arg)
 				rt_printf("\e[32;1m\t percent_ready: %f,  \e[0m\n", 	 	percent_ready);
 				rt_printf("\e[32;1m\t percent_extract: %f,  \e[0m\n", 	 	percent_extract);
 				rt_printf("\e[32;1m\t estimated_inertia: %f,  \e[0m\n", 	 	estimated_inertia[i]);
+				rt_printf("\e[32;1m\t den_sum: %f,  \e[0m\n", 	 	den_sum[i]);
+				rt_printf("\e[32;1m\t num_sum: %f,  \e[0m\n", 	 	num_sum[i]);
 				
 
 			}
@@ -1126,15 +976,15 @@ int main(int argc, char **argv)
 	// For trajectory interpolation
 	initAxes();
 	//confirm the trajectory file is loaded
-	char traj2[] = "/home/user/release/friction_data/RT_test/";
-	char traj3[] = "/home/user/release/friction_data/Avg_test/";
+	char traj2[] = "/home/user/release/inertia_estimation/logging_csv/";
+	char traj3[] = "/home/user/release/inertia_estimation/logging_csv/";
 	if(!_frictionDataLogger.set_logging_path(traj2,traj3))
 
 	{
 		printf("Set Data Logger Path\n");
 		exit(1);
 	}
-	if (!_trajectory.read_trajectory("/home/user/release/data_csvFile/")) {
+	if (!_trajectory.read_trajectory("/home/user/release/inertia_estimation/traj_gen_csv/")) {
 			printf("Set Data Logger Path\n");
 			exit(1);
 		}
