@@ -15,15 +15,15 @@ bool Controllers::read_trajectory(const char *trajectory_path)
 {
   fstream file_traj_pos, file_traj_vel, file_traj_acc;
 
-  sprintf(pos_trajectory, "%s%s.csv", trajectory_path, "traj_pos_pos1");
-  sprintf(vel_trajectory, "%s%s.csv", trajectory_path, "traj_vel_pos1");
-  sprintf(acc_trajectory, "%s%s.csv", trajectory_path, "traj_acc_pos1");
+  sprintf(pos_trajectory, "%s%s.csv", trajectory_path, "traj_pos");
+  sprintf(vel_trajectory, "%s%s.csv", trajectory_path, "traj_vel");
+  sprintf(acc_trajectory, "%s%s.csv", trajectory_path, "traj_acc");
 
   file_traj_pos.open(pos_trajectory);
-	file_traj_vel.open(vel_trajectory);
-	file_traj_acc.open(acc_trajectory);
+  file_traj_vel.open(vel_trajectory);
+  file_traj_acc.open(acc_trajectory);
 
-	string line;
+  string line;
 
   try
   {
