@@ -13,27 +13,14 @@
 
 * Friction Compensation: 식별된 파라미터를 제어기에 적용하여 저속 구간의 위치 오차를 획기적으로 개선
 
-🛠 기술 스택 (Tech Stack)
+## 🛠 기술 스택 (Tech Stack)
 
-분류
-
-상세 내용
-
-Languages
-
-C (실시간 데이터 획득), Python (비선형 최적화), Bash (자동화 셸 스크립트)
-
-Algorithms
-
-Nonlinear Optimization, Robot Dynamics Modeling, Parameter ID
-
-Libraries
-
-CasADi / SciPy (Optimization), NumPy, Matplotlib
-
-Tools
-
-Linux Shell, Git Log Management
+|분류|상세 내용|
+|--------|------------------------------|
+|Languages|C (실시간 데이터 획득), Python (비선형 최적화), Bash (자동화 셸 스크립트)|
+|Algorithms|Nonlinear Optimization, Robot Dynamics Modeling, Parameter ID|
+|Libraries|CasADi / SciPy (Optimization), NumPy, Matplotlib|
+|Tools|Linux Shell, Git Log Management|
 
 📂 프로젝트 구조 (Project Structure)
 ```
