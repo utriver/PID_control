@@ -17,23 +17,14 @@
 
 |분류|상세 내용|
 |--------|------------------------------|
-|Languages|C (실시간 데이터 획득), Python (비선형 최적화), Bash (자동화 셸 스크립트)|
+|Languages|C++ (실시간 데이터 획득), Python (비선형 최적화), Bash (자동화 셸 스크립트)|
 |Algorithms|Nonlinear Optimization, Robot Dynamics Modeling, Parameter ID|
 |Libraries|CasADi / SciPy (Optimization), NumPy, Matplotlib|
 |Tools|Linux Shell, Git Log Management|
 
 📂 프로젝트 구조 (Project Structure)
 ```
-├── src/
-│   ├── friction_op.c        # 로봇 구동 및 마찰 데이터 획득 로직 (C)
-│   └── Makefile             # 빌드 자동화
-├── scripts/
-│   ├── optimization.py      # 비선형 최적화 및 파라미터 도출 (Python)
-│   └── run_id_process.sh    # C 빌드 및 Python 연동 자동화 셸 스크립트
-├── data/
-│   └── measurements/        # 실험 데이터 로그 (CSV/TXT)
-└── docs/
-    └── results/             # 모델별 성능 비교 그래프 및 결과 리포트
+
 ```
 
 ## 🚀 사용 방법 (Usage)
