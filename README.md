@@ -7,11 +7,11 @@
 
 **핵심 알고리즘 및 접근법**
 
-*Static Identification: Trapezoidal Velocity 입력을 활용한 Stribeck 모델 ($F_s, F_c, F_v, \delta, v_s$) 식별
+* Static Identification: Trapezoidal Velocity 입력을 활용한 Stribeck 모델 ($F_s, F_c, F_v, \delta, v_s$) 식별
 
-*Dynamic Identification: Low Torque 입력을 활용한 LuGre 및 GMS(Generalized Maxwell Slip) 모델 식별
+* Dynamic Identification: Low Torque 입력을 활용한 LuGre 및 GMS(Generalized Maxwell Slip) 모델 식별
 
-*Friction Compensation: 식별된 파라미터를 제어기에 적용하여 저속 구간의 위치 오차를 획기적으로 개선
+* Friction Compensation: 식별된 파라미터를 제어기에 적용하여 저속 구간의 위치 오차를 획기적으로 개선
 
 🛠 기술 스택 (Tech Stack)
 
