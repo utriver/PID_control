@@ -1,7 +1,7 @@
 # 🦾 로봇 정밀 제어를 위한 마찰 모델 식별 및 보상 시스템
 Friction Parameter Identification: Stribeck, LuGre, and GMS Models
 
-## 📝 프로젝트 개요 (Project Description)
+## 📝 프로젝트 개요 
 
 로봇의 정밀한 움직임을 구현하기 위해서는 관절 내 마찰 토크($\tau_f$)를 정확히 파악하는 것이 필수적입니다. 본 프로젝트에서는 로봇 동역학 모델에서 관성, 코리올리, 중력 항을 제거하여 순수 마찰력을 추출하고, 이를 기반으로 Stribeck(정적) 및 GMS(동적) 마찰 모델의 파라미터를 식별하는 시스템을 구축했습니다.
 
@@ -13,7 +13,7 @@ Friction Parameter Identification: Stribeck, LuGre, and GMS Models
 
 * Friction Compensation: 식별된 파라미터를 제어기에 적용하여 저속 구간의 위치 오차를 획기적으로 개선
 
-## 🛠 기술 스택 (Tech Stack)
+## 🛠 기술 스택 
 
 |분류|상세 내용|
 |--------|------------------------------|
@@ -24,7 +24,7 @@ Friction Parameter Identification: Stribeck, LuGre, and GMS Models
 
 
 
-## 🚀 사용 방법 (Usage)
+## 🚀 사용 방법 
 본 프로젝트는 데이터 획득부터 최적화까지 셸 스크립트 하나로 자동화되어 있습니다.
 
 **1. 시스템 환경 설정:** 필요한 라이브러리(Python 환경 및 C 컴파일러)가 설치되어 있는지 확인합니다.
