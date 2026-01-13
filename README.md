@@ -1,5 +1,5 @@
-# PID_control
-로봇 정밀 제어를 위한 마찰 모델 식별 및 보상 시스템
+# 🦾 로봇 정밀 제어를 위한 마찰 모델 식별 및 보상 시스템
+Friction Parameter Identification: Stribeck, LuGre, and GMS Models
 
 ## 📝 프로젝트 개요 (Project Description)
 
