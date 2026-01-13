@@ -1,17 +1,17 @@
 # PID_control
 로봇 정밀 제어를 위한 마찰 모델 식별 및 보상 시스템
 
-##📝 프로젝트 개요 (Project Description)
+## 📝 프로젝트 개요 (Project Description)
 
 로봇의 정밀한 움직임을 구현하기 위해서는 관절 내 마찰 토크($\tau_f$)를 정확히 파악하는 것이 필수적입니다. 본 프로젝트에서는 로봇 동역학 모델에서 관성, 코리올리, 중력 항을 제거하여 순수 마찰력을 추출하고, 이를 기반으로 Stribeck(정적) 및 GMS(동적) 마찰 모델의 파라미터를 식별하는 시스템을 구축했습니다.
 
-핵심 알고리즘 및 접근법
+**핵심 알고리즘 및 접근법**
 
-Static Identification: Trapezoidal Velocity 입력을 활용한 Stribeck 모델 ($F_s, F_c, F_v, \delta, v_s$) 식별
+*Static Identification: Trapezoidal Velocity 입력을 활용한 Stribeck 모델 ($F_s, F_c, F_v, \delta, v_s$) 식별
 
-Dynamic Identification: Low Torque 입력을 활용한 LuGre 및 GMS(Generalized Maxwell Slip) 모델 식별
+*Dynamic Identification: Low Torque 입력을 활용한 LuGre 및 GMS(Generalized Maxwell Slip) 모델 식별
 
-Friction Compensation: 식별된 파라미터를 제어기에 적용하여 저속 구간의 위치 오차를 획기적으로 개선
+*Friction Compensation: 식별된 파라미터를 제어기에 적용하여 저속 구간의 위치 오차를 획기적으로 개선
 
 🛠 기술 스택 (Tech Stack)
 
