@@ -22,10 +22,7 @@
 |Libraries|CasADi / SciPy (Optimization), NumPy, Matplotlib|
 |Tools|Linux Shell, Git Log Management|
 
-📂 프로젝트 구조 (Project Structure)
-```
 
-```
 
 ## 🚀 사용 방법 (Usage)
 본 프로젝트는 데이터 획득부터 최적화까지 셸 스크립트 하나로 자동화되어 있습니다.
